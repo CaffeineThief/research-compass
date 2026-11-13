@@ -1,0 +1,10 @@
+{
+  "name": "research-tools",
+  "interface": {"displayName": "Research Compass"},
+  "plugins": [{
+    "name": "research-compass",
+    "source": {"source": "local", "path": "./"},
+    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+    "category": "Productivity"
+  }]
+}

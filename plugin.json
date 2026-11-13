@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "research-compass",
+  "version": "1.0.0",
+  "description": "확인 가능한 학술 근거로 연구 주제, 실행 계획, 투고 전략을 만드는 연구 보조 플러그인",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Research Compass",
+        "shortDescription": "문헌 근거에서 연구 설계와 투고처까지",
+        "composerIcon": "./assets/research-icon.png",
+        "logo": "./assets/research-icon.png",
+        "brandColor": "#101F30",
+        "category": "Productivity",
+        "capabilities": [
+          "Instructions"
+        ],
+        "defaultPrompt": [
+          "관심 분야를 바탕으로 근거가 연결된 연구 주제와 실행 계획, 투고처를 탐색해 주세요."
+        ]
+      }
+    }
+  }
+}
