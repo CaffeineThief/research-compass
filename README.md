@@ -56,3 +56,7 @@ Full-text review and venue verification require access to the source papers and 
 To resume, invoke the skill with the path to `state.json` and describe the changes you want. If you upload files directly to GitHub, exclude `runs/`, which contains private research results.
 
 The [workflow guide](skills/research-compass/references/workflow.md) covers pilot measurements, search budgets, venue rechecks, and final report validation. The [data contract](skills/research-compass/references/data-contract.md) covers CLI usage and file formats. Both guides are in Korean.
+
+## License
+
+Research Compass is released under the [MIT License](LICENSE).

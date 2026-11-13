@@ -56,3 +56,7 @@ $research-compass:research-compass
 이어서 작업하려면 같은 스킬을 호출하고 `state.json` 경로와 변경할 조건을 전달하세요. GitHub에 직접 업로드할 때는 개인 연구 결과가 담긴 `runs/`를 제외하세요.
 
 파일럿 측정, 검색 예산, 투고처 재확인과 최종 보고서 검증은 [실행 절차](skills/research-compass/references/workflow.md)에, CLI 사용법과 저장 형식은 [데이터 계약](skills/research-compass/references/data-contract.md)에 있습니다.
+
+## 라이선스
+
+Research Compass는 [MIT 라이선스](LICENSE)로 배포합니다.
