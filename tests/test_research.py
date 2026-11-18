@@ -33,7 +33,7 @@ def paper(pid="TEST-P1", access="full_text", test_data=True):
 def candidate():
     return {"id": "TEST-C1", "title": "TEST ONLY — Candidate", "paper_ids": ["TEST-P1"], "gap_ids": ["TEST-G1"],
             "pilot": {"status": "not_applicable", "reason": "TEST conceptual study without GPU experiments"},
-            "design": {"status": "not_applicable", "reason": "TEST conceptual study"},
+            "design": {"status": "not_applicable", "reason": "TEST conceptual study", "effect_plan": {"status": "qualitative", "reason": "TEST theoretical", "criteria": "TEST counterexample and proof consistency", "assumptions": "TEST stated axioms", "source": source()}},
             "provenance": {"status": "not_applicable", "reason": "TEST no datasets or checkpoints"},
             "resource_plan": {"status": "estimated", "work_hours": 6, "assumptions": "TEST reading and writing effort", "source": source()},
             "gates": {k: {"status": "pass", "reason": "Fixture confirmation", "evidence": source()} for k in GATES},

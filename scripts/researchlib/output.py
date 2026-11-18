@@ -282,7 +282,19 @@ def markdown(state):
                   "<details><summary>축별 비교·근거 기록</summary>", "", "```json", json.dumps(novelty, ensure_ascii=False, indent=2), "```", "", "</details>", ""]
         for key in ("design", "provenance"):
             lines += [f"<details><summary>{key} 상세 기록</summary>", "", "```json", json.dumps(c.get(key), ensure_ascii=False, indent=2), "```", "", "</details>", ""]
-        lines += ["### 파일럿 기반 자원 추정", ""]
+        effect = (c.get("design") or {}).get("effect_plan") or {}
+        lines += ["### 효과·표본·정밀도 판단", "", f"- 상태: {effect.get('status', '미작성')}"]
+        if effect.get("status") == "quantitative":
+            precision = effect["precision"]
+            lines += [f"- 의미 있는 최소 효과: {effect['minimum_effect']} / {effect['metric']}",
+                      f"- 독립 단위: {effect['unit']} / 필요 {effect['required_units']} / 확보 {effect['available_units']}",
+                      f"- 판단 목표: {precision['kind']}={precision['target']} / 산정 근거: {effect['basis']}",
+                      f"- 가정: {effect['assumptions']}"]
+        elif effect.get("status") == "qualitative":
+            lines += [f"- 판단 기준: {effect['criteria']}", f"- 사유·가정: {effect['reason']} / {effect['assumptions']}"]
+        elif effect.get("status") == "pending":
+            lines += [f"- 미산정 사유: {effect['reason']}", f"- 첫 주 측정: {effect['measurement_plan']}"]
+        lines += ["", "### 파일럿 기반 자원 추정", ""]
         if c.get("pilot"):
             estimate = pilot_estimate(c['pilot'])
             lines += [f"상태: {estimate['status']} / 예상 전체 GPU시간: {cell(estimate.get('estimated_hours'))}", "",

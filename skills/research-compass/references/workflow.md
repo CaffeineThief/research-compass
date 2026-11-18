@@ -130,3 +130,14 @@ python3 "$SCRIPT" export ./research-run/state.json --final --format all
 ```
 
 일반 validate/export는 초안 저장용이다. --final은 메타데이터, 단계 상태, 선택 후보의 23개 계획 필드, 설계·이력·파일럿 상태·첫 주 작업, 주장 카드의 버전·발췌·해석을 추가 검사한다. 최종 선택 후보에는 공백·주장·실제 열람 문헌의 유효한 연결이 필요하다. 연결이 부족하면 조건부 초안으로 제공하고 gap_review에 부족 사유와 다음 확인 작업을 기록한다. 데이터·자원 등 실행 조건이 미확인인 조건부 후보도 이 연결을 갖추면 미확인 사항을 적은 최종 제안으로 낼 수 있다. 선택 후보가 없으면 no_candidate_reason과 next_actions에 확인 범위와 다음 행동을 기록한다. 완성된 제안과 실험 착수 가능성은 다른 판정이다. 최종 검증 실패 시 초안을 제공하고 빠진 정보를 알리며, 통과를 위해 근거를 만들어 내지 않는다.
+
+## 8. 의미 있는 효과와 표본·정밀도
+
+최종 선택 후보의 `design.effect_plan`을 기록한다. 분야·자료·지표에 맞는 근거를 직접 확인하며, 모든 연구에 같은 검정력 공식을 적용하지 않는다. 계산은 해당 통계 설계의 공인 도구·시뮬레이션 등으로 별도 수행하고 방법·가정·위치를 남긴다. 이 CLI는 표본 수를 자동 산출하거나 통계적 타당성을 인증하지 않는다.
+
+- 정량 연구: `status=quantitative`, metric(효과 척도), minimum_effect(의미 있는 최소 변화의 양의 크기), unit(독립 단위, design.independent_unit과 정확히 일치), required_units(필요 독립 표본 양의 정수), available_units(확보 수 0 이상), basis(산정 방법·근거), assumptions, source.
+- precision: `{kind: ci_half_width/power/simulation, target: 양수, level: 신뢰수준 또는 power의 alpha}`. power의 target과 level은 0과 1 사이. simulation은 target의 의미·단위와 통과 기준을 basis에 설명한다. 사건 중심 분석은 events `{unit, required, available}`도 기록하고 필요한 경우 required_repeated_runs를 쓴다. 환자·영상·모델 반복을 독립 표본으로 혼용하지 않는다. 군집·대응·반복 구조는 assumptions와 uncertainty에 처리 방법을 적는다.
+- 미산정: `status=pending`, reason, measurement_plan, measurement_task_id. 측정 계획은 유병률·불일치 사건·분산 등을 첫 주에 어떻게 셀지 구체화하고 실제 `first_week`의 measurement 작업 ID에 연결한다. 숫자를 추정해 완성하지 않는다.
+- 정성·이론 연구: `status=qualitative`, reason, criteria(예: 반례 탐색·증명 검토·자료 포화 기준), assumptions, source. design 자체가 not_applicable인 경우에도 이 판단 기준은 설명한다.
+
+정량 계획의 `resource_plan.scope`에는 unit(같은 독립 평가 단위), evaluation_units(비용에 포함한 평가 표본 수), repeated_runs(설계와 같은 반복 수)를 기록한다. 사건 계획이 있으면 scope.events `{unit,count}`도 포함한다. 표본·반복 확대가 산정 범위를 벗어나면 conditional이며 평가·준비·작업시간과 파일럿 실행 수를 다시 계산한다. 훈련 영상 수 pilot.dataset_size를 환자 단위 평가 표본 수로 비교하지 않는다. 변경 후 `invalidate <state> evaluation --candidate <ID> --reason '표본/반복 계획 변경'`으로 재검토를 기록한다. 기존 계획 누락 초안은 읽으며 미작성 과제를 표시하고 최종 선택에서 명시적 계획을 요구한다.

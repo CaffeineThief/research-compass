@@ -103,9 +103,68 @@ def work_estimate(plan):
     return number(plan, "work_hours", positive=False)
 
 
+def effect_check(design, final=False):
+    plan = design.get("effect_plan") if isinstance(design, dict) else None
+    if plan is None:
+        if final:
+            raise ValueError("design.effect_plan: 효과·표본·정밀도 또는 분야별 판단 기준 필요")
+        return ["효과·표본·정밀도 계획 미작성"]
+    if not isinstance(plan, dict):
+        raise ValueError("design.effect_plan: 객체 필요")
+    status = plan.get("status")
+    if status == "pending":
+        if any(not isinstance(plan.get(k), str) or not plan[k].strip() for k in ("reason", "measurement_plan")):
+            raise ValueError("effect_plan: 미산정 사유와 파일럿에서 측정할 작업 필요")
+        return ["효과·표본 계획 확인 대기: " + plan["measurement_plan"]]
+    if status == "qualitative":
+        if any(not isinstance(plan.get(k), str) or not plan[k].strip() for k in ("reason", "criteria", "assumptions")) or not source_ok(plan.get("source")):
+            raise ValueError("effect_plan: 정성·이론 연구의 사유·판단 기준·가정·출처 필요")
+        return []
+    if status != "quantitative":
+        raise ValueError("effect_plan.status: quantitative/qualitative/pending 필요")
+    for key in ("metric", "unit", "basis", "assumptions"):
+        if not isinstance(plan.get(key), str) or not plan[key].strip():
+            raise ValueError(f"effect_plan.{key}: 기준값의 근거·단위·가정 필요")
+    if not source_ok(plan.get("source")):
+        raise ValueError("effect_plan.source: 기준·표본 산정의 근거 필요")
+    if plan["unit"] != design.get("independent_unit"):
+        raise ValueError("effect_plan.unit: design.independent_unit과 일치해야 함; 영상·환자·실행 단위를 구분하세요.")
+    number(plan, "minimum_effect")
+    required = number(plan, "required_units", integer=True)
+    available = number(plan, "available_units", integer=True, positive=False)
+    precision = plan.get("precision")
+    if not isinstance(precision, dict) or precision.get("kind") not in ("ci_half_width", "power", "simulation"):
+        raise ValueError("effect_plan.precision: ci_half_width/power/simulation과 target 필요")
+    target = number(precision, "target")
+    if precision["kind"] == "power" and target >= 1:
+        raise ValueError("effect_plan.precision: power는 0과 1 사이")
+    if precision["kind"] in ("ci_half_width", "power"):
+        level = number(precision, "level")
+        if level >= 1:
+            raise ValueError("effect_plan.precision.level: 신뢰수준 또는 alpha는 0과 1 사이")
+    reasons = []
+    if available < required:
+        reasons.append(f"독립 표본 부족: 확보 {available:g} / 필요 {required:g} {plan['unit']}")
+    if "required_repeated_runs" in plan:
+        repeats = number(plan, "required_repeated_runs", integer=True)
+        if design.get("repeated_runs", 0) < repeats:
+            reasons.append("효과 계획에 필요한 반복 수보다 설계의 반복 수가 적음")
+    if "events" in plan:
+        events = plan["events"]
+        if not isinstance(events, dict) or not isinstance(events.get("unit"), str) or not events["unit"].strip():
+            raise ValueError("effect_plan.events: 사건 단위·required·available 필요")
+        needed = number(events, "required", integer=True, positive=False)
+        count = number(events, "available", integer=True, positive=False)
+        if count < needed:
+            reasons.append(f"사건 수 부족: 확보 {count:g} / 필요 {needed:g} {events['unit']}")
+    return reasons
+
+
 def resource_check(candidate, state):
     capacity = resource_budget(state["profile"])
-    reasons = []
+    design = candidate.get("design") or {}
+    reasons = effect_check(design)
+    effect = design.get("effect_plan") or {}
     work_hours = work_estimate(candidate["resource_plan"]) if candidate.get("resource_plan") is not None else None
     if capacity["status"] == "pending":
         reasons.append("연구 기간·주당 가용 시간 미확인: " + capacity["reason"])
@@ -146,12 +205,42 @@ def resource_check(candidate, state):
                     reasons.append("파일럿 조건별 실행 수와 설계의 조건 수·반복 수가 일치하지 않음")
             except ValueError as exc:
                 reasons.append("design: " + str(exc))
+    if effect.get("status") == "quantitative":
+        scope = (candidate.get("resource_plan") or {}).get("scope")
+        if scope is None:
+            reasons.append("resource_plan.scope: 표본·반복 수 변경에 따른 평가·작업 비용 재산정 필요")
+        elif not isinstance(scope, dict):
+            raise ValueError("resource_plan.scope: 객체 필요")
+        else:
+            if scope.get("unit") != effect["unit"]:
+                raise ValueError("resource_plan.scope.unit: 효과 계획의 독립 평가 단위와 일치해야 함")
+            units = number(scope, "evaluation_units", integer=True, positive=False)
+            repeats = number(scope, "repeated_runs", integer=True)
+            events = effect.get("events")
+            events_fit = True
+            if events is not None:
+                scoped_events = scope.get("events")
+                events_fit = (isinstance(scoped_events, dict) and scoped_events.get("unit") == events["unit"]
+                              and number(scoped_events, "count", integer=True, positive=False) >= events["required"])
+            if units < effect["required_units"] or repeats != design.get("repeated_runs") or not events_fit:
+                reasons.append("표본·반복 수가 자원 산정 범위를 벗어남; 평가시간·작업시간·파일럿 실행 수 갱신 필요")
     return {**capacity, "gpu_hours_required": gpu_hours, "work_hours_required": work_hours,
             "fits": not reasons, "reasons": reasons}
 
 
 def planning_errors(candidate, final=False):
     errors = []
+    try:
+        effect_check(candidate.get("design"), final)
+    except ValueError as exc:
+        errors.append(str(exc))
+    design = candidate.get("design")
+    if isinstance(design, dict) and isinstance(design.get("effect_plan"), dict):
+        effect = design["effect_plan"]
+        if final and effect.get("status") == "pending":
+            tasks = candidate.get("first_week", [])
+            if not isinstance(tasks, list) or not any(isinstance(t, dict) and t.get("id") == effect.get("measurement_task_id") and t.get("category") == "measurement" for t in tasks):
+                errors.append("effect_plan.measurement_task_id: 첫 주 measurement 작업에 연결 필요")
     for key in ("pilot", "design", "provenance"):
         value = candidate.get(key)
         if value is None and not final:
@@ -212,6 +301,12 @@ def planning_errors(candidate, final=False):
     if candidate.get("resource_plan") is not None or final:
         try:
             work_estimate(candidate.get("resource_plan"))
+            scope = candidate.get("resource_plan", {}).get("scope")
+            if scope is not None:
+                if not isinstance(scope, dict) or not isinstance(scope.get("unit"), str) or not scope["unit"].strip():
+                    raise ValueError("resource_plan.scope: 독립 단위·평가 표본 수·반복 수 필요")
+                number(scope, "evaluation_units", integer=True, positive=False)
+                number(scope, "repeated_runs", integer=True)
         except ValueError as exc:
             errors.append(str(exc))
     tasks = candidate.get("first_week")
