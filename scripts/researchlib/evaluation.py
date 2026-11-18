@@ -178,3 +178,13 @@ def rank(state):
     result = [evaluate(c, state) for c in state["candidates"]]
     order = {"passed": 0, "conditional": 1, "rejected": 2}
     return sorted(result, key=lambda x: (order[x["status"]], -(x["score"] if x["score"] is not None else -1)))
+
+
+def selected_candidates(state):
+    by_id = {c["id"]: c for c in state["candidates"]}
+    selection = state.get("report", {}).get("selected_candidate_ids")
+    if selection is not None:
+        if not valid_id_list(selection) or set(selection) - by_id.keys():
+            raise ValueError("report.selected_candidate_ids: 고유한 실제 후보 ID 배열 필요")
+        return [by_id[cid] for cid in selection]
+    return [by_id[r["id"]] for r in rank(state) if r["status"] != "rejected"][:5]

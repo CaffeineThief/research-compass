@@ -265,7 +265,8 @@ def readiness_reasons(candidate, state):
 
 
 def week_checklist(state, candidate_id=None):
-    selected = [c for c in state["candidates"] if c["id"] == candidate_id] if candidate_id else [c for c in state["candidates"] if c["id"] in state.get("report", {}).get("selected_candidate_ids", [])]
+    from .evaluation import selected_candidates
+    selected = [c for c in state["candidates"] if c["id"] == candidate_id] if candidate_id else selected_candidates(state)
     if candidate_id and not selected:
         raise ValueError("후보 ID를 찾을 수 없습니다.")
     lines = ["# 첫 주 실행 체크리스트", "", "테스트 자료" if state["test_data"] else "완료 표시는 확인 근거가 있는 작업에만 사용합니다.", ""]

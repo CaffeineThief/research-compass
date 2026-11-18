@@ -3,7 +3,7 @@ import math
 import json
 from datetime import date
 
-from .evaluation import rank, gap_errors, review_errors
+from .evaluation import rank, gap_errors, review_errors, selected_candidates
 from .journals import verified_field, recheck_journals, venue_fields
 from .literature import validate_claims, validate_paper, evidence_errors, evidence_version, valid_id_list
 from .planning import planning_errors, pilot_estimate, resource_budget, resource_check
@@ -128,6 +128,7 @@ def validate(state, final=False):
                 errors.append(str(exc))
     try:
         rank(state)
+        selected_candidates(state)
         search_coverage(state)
     except (ValueError, KeyError, TypeError, AttributeError) as exc:
         errors.append(str(exc))
@@ -182,14 +183,37 @@ def cell(value):
 def markdown(state):
     result = rank(state)
     label = "테스트용 데이터 — 실제 연구 근거가 아님" if state["test_data"] else "실제 자료 세션 — 출처 확인 범위 내 해석"
-    lines = [f"# {state['topic']}", "", label, "", "## 진행 상태", ""]
+    selected = selected_candidates(state)
+    results = {r["id"]: r for r in result}
+    lines = [f"# {state['topic']}", "", label, "", "## 후보 선택 요약", "",
+             "조건부 후보는 확인 과제를 해결한 뒤 착수합니다. [근거 카드](evidence-cards.md) · [첫 주 작업](first-week.md)", "",
+             "| 후보·상태·상세 | 문제 | 연구 질문 | 방법 | 기대 기여 | 주요 위험 | 다음 행동 |",
+             "|---|---|---|---|---|---|---|"]
+    for index, c in enumerate(selected, 1):
+        plan = c.get("plan", {})
+        tasks = [t["text"] for t in c.get("first_week", []) if not t.get("done")]
+        actions = c.get("review", {}).get("next_actions", [])
+        risk = plan.get("resources_risks") or "; ".join(results[c["id"]]["reasons"])
+        action = next(iter(tasks or actions), "미정 — 첫 주 작업 작성 필요")
+        values = [f"[{cell(c['id'])}: {cell(c['title'])}](#candidate-{index}) / {results[c['id']]['status']}",
+                  plan.get("problem"), plan.get("question"), plan.get("method") or plan.get("minimum_experiment"),
+                  plan.get("expected_contribution"), risk or "미정 — 위험 검토 필요", action]
+        lines.append("| " + " | ".join(cell(value) for value in values) + " |")
+    if not selected:
+        lines += ["", state.get("report", {}).get("no_candidate_reason", "선택 후보 없음 — 근거와 실행 조건을 검토하세요.")]
+    lines += ["", "## 진행 상태", ""]
     final_errors = validate(state, final=True)
     lines += ["최종 보고서 검증: " + (f"미완료 ({len(final_errors)}개 확인 과제)" if final_errors else "통과 — 기록 완결성 확인, 연구 타당성 보증 아님"), ""]
-    for key, value in state.get("report", {}).items():
-        lines.append(f"- {key}: {cell(value)}")
+    for key in ("as_of", "scope", "limitations", "next_actions"):
+        if key in state.get("report", {}):
+            lines.append(f"- {key}: {cell(state['report'][key])}")
     lines.extend(f"- {k}: {v}" for k, v in progress_stages(state).items())
     lines += ["", "## 사용자 조건", ""]
-    lines.extend(f"- {k}: {cell(v)}" for k, v in state["profile"].items())
+    for key, value in state["profile"].items():
+        if isinstance(value, dict):
+            lines += [f"<details><summary>{key} 기록</summary>", "", "```json", json.dumps(value, ensure_ascii=False, indent=2), "```", "", "</details>", ""]
+        else:
+            lines.append(f"- {key}: {cell(value)}")
     lines += ["", "## 문헌 및 전문 확인 상태", "", "| ID | 문헌 | 연도 | 접근 | 버전 | 확인일 |", "|---|---|---|---|---|---|"]
     for p in state["papers"]:
         status = "제외됨" if p.get("excluded") else p["access"]
@@ -218,13 +242,12 @@ def markdown(state):
     passed = sum(r["status"] == "passed" for r in result)
     if passed < 2:
         lines += ["", f"검증을 통과한 후보는 {passed}개입니다. 추천 수를 채우기 위해 후보를 추가하지 않습니다."]
-    by_id = {c["id"]: c for c in state["candidates"]}
-    selection = state.get("report", {}).get("selected_candidate_ids")
-    selected = [r for r in result if r["status"] != "rejected" and (selection is None or r['id'] in selection)][:5]
-    for r in selected:
-        c = by_id[r["id"]]
-        lines += ["", f"## {c['id']}: {c['title']} ({r['status']})", ""]
-        lines.append("후보 진행 상태: " + cell(candidate_stages(state, c)))
+    for index, c in enumerate(selected, 1):
+        r = results[c["id"]]
+        lines += ["", f'<a id="candidate-{index}"></a>', "", f"## {c['id']}: {c['title']} ({r['status']})", "",
+                  "후보 진행 상태: " + "; ".join(f"{k}={v}" for k, v in candidate_stages(state, c).items()), ""]
+        if c.get("review"):
+            lines += [f"검토 단계: {c['review']['stage']} / 이유: {c['review']['reason']}", ""]
         for key, title in RESEARCH_FLOW_FIELDS.items():
             lines += [f"### {title}", "", str(c.get("plan", {}).get(key) or "미정 — 추가 확인 필요"), ""]
         lines += ["### 연구 공백과 문헌 근거 연결", ""]
@@ -243,23 +266,35 @@ def markdown(state):
             review = c.get("gap_review", {})
             lines.append(f"- 근거 부족 사유: {review.get('reason') or '미작성 — 확인한 부족 사유를 기록하세요.'}")
             lines.extend(f"- 다음 확인 작업: {action}" for action in review.get("next_actions", ["연구 공백·주장·실제 열람 문헌의 연결을 확인하세요."]))
-        lines += ["### 평가 근거", "", f"가중치: {state['config']['weights']}", ""]
-        lines.extend(f"- 필수 조건 {key}: {value}" for key, value in c.get("gates", {}).items())
-        lines.extend(f"- 점수 {key}: {value}" for key, value in c.get("scores", {}).items())
+        lines += ["### 평가 근거", "", "가중치: " + ", ".join(f"{k}={v}" for k, v in state['config']['weights'].items()), ""]
+        for group, title, number_key in (("gates", "필수 조건", "status"), ("scores", "점수", "value")):
+            for key, value in c.get(group, {}).items():
+                src = value.get("evidence") or {}
+                lines.append(f"- {title} {key}: {value.get(number_key, '미정')} / {value.get('reason', '근거 미정')} / 불확실성: {value.get('uncertainty', '별도 기록 없음')} / 출처: {src.get('url') or src.get('local_file') or '미확인'} / {src.get('location', '위치 미확인')}")
         for key, title in PLAN_FIELDS.items():
             if key in RESEARCH_FLOW_FIELDS:
                 continue
             lines += [f"### {title}", "", str(c.get("plan", {}).get(key) or "미정 — 추가 확인 필요"), ""]
-        lines += ["### 후보별 중복 검증", "", str(c.get("novelty", {})), ""]
+        novelty = c.get("novelty", {})
+        lines += ["### 후보별 중복 검증", "", f"- 판정: {novelty.get('status', '미완료')}",
+                  f"- 가장 가까운 문헌: {', '.join(novelty.get('closest_paper_ids', [])) or '미확인'}",
+                  f"- 불확실성: {novelty.get('uncertainty', '미기재')}", "",
+                  "<details><summary>축별 비교·근거 기록</summary>", "", "```json", json.dumps(novelty, ensure_ascii=False, indent=2), "```", "", "</details>", ""]
         for key in ("design", "provenance"):
-            lines += [f"### {key}", "", "```json", json.dumps(c.get(key), ensure_ascii=False, indent=2), "```", ""]
+            lines += [f"<details><summary>{key} 상세 기록</summary>", "", "```json", json.dumps(c.get(key), ensure_ascii=False, indent=2), "```", "", "</details>", ""]
         lines += ["### 파일럿 기반 자원 추정", ""]
         if c.get("pilot"):
-            lines += ["```json", json.dumps({"inputs": c['pilot'], "estimate": pilot_estimate(c['pilot'])}, ensure_ascii=False, indent=2), "```", ""]
+            estimate = pilot_estimate(c['pilot'])
+            lines += [f"상태: {estimate['status']} / 예상 전체 GPU시간: {cell(estimate.get('estimated_hours'))}", "",
+                      "<details><summary>측정값·가정·계산식</summary>", "", "```json", json.dumps({"inputs": c['pilot'], "estimate": estimate}, ensure_ascii=False, indent=2), "```", "", "</details>", ""]
         else:
             lines += ["미측정 — 실제 GPU 측정 없이 수치를 확정하지 않습니다.", ""]
+        comparison = resource_check(c, state)
         lines += ["### 자원과 사용 가능 시간 대조", "", "허용량은 사용자 확인 기간 × 주당 가용 시간으로 계산합니다.", "",
-                  "```json", json.dumps({"resource_plan": c.get("resource_plan"), "comparison": resource_check(c, state)}, ensure_ascii=False, indent=2), "```", ""]
+                  f"- GPU시간: 필요 {cell(comparison['gpu_hours_required'])} / 가용 {cell(comparison.get('gpu_hours_available'))}",
+                  f"- 연구 작업시간: 필요 {cell(comparison['work_hours_required'])} / 가용 {cell(comparison.get('work_hours_available'))}"]
+        lines.extend(f"- 확인 과제: {reason}" for reason in comparison["reasons"])
+        lines += ["", "<details><summary>자원 산정 근거</summary>", "", "```json", json.dumps({"resource_plan": c.get("resource_plan"), "comparison": comparison}, ensure_ascii=False, indent=2), "```", "", "</details>", ""]
     lines += ["", "## 투고처", "", "| 연구 후보 | 저널·학술대회명 | 유형 | 회차·트랙 | 적합성 | 보강할 점 |", "|---|---|---|---|---|---|"]
     for j in state["journals"]:
         conference = j.get("category") == "conference"
@@ -279,7 +314,9 @@ def markdown(state):
             if k == "metrics" and field["source"]:
                 lines.append(f"  - 기준 연도: {j[k]['year']}; 분류: {j[k]['category']}")
     lines += ["", "## 검색 범위와 이력", ""]
-    lines += ["```json", json.dumps(search_coverage(state), ensure_ascii=False, indent=2), "```", ""]
+    coverage = search_coverage(state)
+    lines += [f"실제 요청 {state['usage']['requests']}회 / 신규 채택 {state['usage']['results']}건 / 남은 요청 {coverage['remaining_requests']}회 / 남은 채택 {coverage['remaining_results']}건", "",
+              "<details><summary>갈래별 집계·질의별 지속/종료 근거</summary>", "", "```json", json.dumps(coverage, ensure_ascii=False, indent=2), "```", "", "</details>", ""]
     for s in state["search_log"]:
         lines.append(f"- {s['id']} [{s.get('branch')}] {s.get('query')} / {s.get('provider')} / {s.get('since')}–{s.get('until')} / {s.get('status')} / {s.get('at')} / cache={s.get('cache_hit', False)} / {s.get('error', '')}")
     lines += ["", "## 투고처 재확인", "", "기본 90일 기준의 확인일 점검입니다. 최신 사실을 자동 조회한 결과가 아닙니다.", ""]
