@@ -1,6 +1,6 @@
 import math
 from .literature import source_ok, evidence_errors, valid_id_list, validate_claims
-from .state import CRITERIA, GATES, candidate_stages
+from .state import CRITERIA, GATES, candidate_stages, invalidate, now
 from .planning import readiness_reasons
 
 AXES = dict(zip(("problem", "method", "assumptions", "data", "evaluation", "contribution"), ("문제", "방법", "가정", "데이터", "평가", "기여")))
@@ -63,6 +63,41 @@ def novelty_errors(candidate, state):
     return errors
 
 
+def review_errors(candidate):
+    review = candidate.get("review")
+    if review is None:
+        return []
+    if (not isinstance(review, dict) or review.get("stage") not in ("screening", "hold", "detailed")
+            or not isinstance(review.get("reason"), str) or not review["reason"].strip()
+            or not isinstance(review.get("next_actions"), list)
+            or any(not isinstance(a, str) or not a.strip() for a in review["next_actions"])):
+        return ["review: screening/hold/detailed, 판단 이유, 다음 작업 배열 필요"]
+    if review["stage"] != "detailed":
+        plan = candidate.get("plan", {})
+        if any(not isinstance(plan.get(k), str) or not plan[k].strip() for k in ("problem", "question")):
+            return ["초기 선별: 문제·연구 질문 필요"]
+        if not candidate.get("novelty", {}).get("closest_paper_ids") or not review.get("main_blocker"):
+            return ["초기 선별: 가장 가까운 선행 연구 ID와 핵심 장애/확인 과제 필요"]
+    return []
+
+
+def record_review(state, candidate_id, review):
+    import copy
+    candidate = next((c for c in state["candidates"] if c["id"] == candidate_id), None)
+    if candidate is None:
+        raise ValueError("후보 ID를 찾을 수 없습니다.")
+    checked = {**candidate, "review": review}
+    errors = review_errors(checked)
+    if errors:
+        raise ValueError("; ".join(errors))
+    if candidate.get("review") == review:
+        return review
+    candidate.setdefault("review_history", []).append({"at": now(), "review": copy.deepcopy(review)})
+    candidate["review"] = copy.deepcopy(review)
+    invalidate(state, "evaluation", "검토 단계·판단 갱신: " + candidate_id, [candidate_id])
+    return review
+
+
 def evaluate(candidate, state):
     reasons, conditional, failed = [], False, False
     if any(candidate_stages(state, candidate).get(s) == "stale" for s in ("search", "analysis", "gaps", "candidates", "novelty", "evaluation")):
@@ -79,6 +114,11 @@ def evaluate(candidate, state):
         elif status != "pass" or not gate.get("reason") or not source_ok(gate.get("evidence")):
             conditional = True
             reasons.append(f"필수 조건 미확인: {name}")
+    review = candidate.get("review") or {}
+    if review.get("stage", "detailed") != "detailed":
+        return {"id": candidate["id"], "status": "rejected" if failed else "conditional", "score": None,
+                "reasons": reasons + ["상세 검토 전: " + review.get("reason", "판단 기록 필요")]
+                           + review_errors(candidate)}
     novelty = candidate.get("novelty", {})
     searches = {s["id"]: s for s in state["search_log"]}
     search_ids = novelty.get("search_ids", [])

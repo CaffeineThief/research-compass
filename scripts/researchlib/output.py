@@ -3,7 +3,7 @@ import math
 import json
 from datetime import date
 
-from .evaluation import rank, gap_errors
+from .evaluation import rank, gap_errors, review_errors
 from .journals import verified_field, recheck_journals, venue_fields
 from .literature import validate_claims, validate_paper, evidence_errors, evidence_version, valid_id_list
 from .planning import planning_errors, pilot_estimate, resource_budget, resource_check
@@ -55,11 +55,12 @@ def validate(state, final=False):
     for candidate in state["candidates"]:
         stages = candidate.get("stages", {})
         if (not isinstance(stages, dict) or set(stages) - set(STAGES)
-                or any(value not in ("pending", "stale", "complete", "partial") for value in stages.values())):
+                or any(value not in ("pending", "in_progress", "stale", "complete", "partial") for value in stages.values())):
             errors.append(f"candidate {candidate['id']}.stages: 올바른 단계 상태 필요")
         for key in ("plan", "novelty", "gates", "scores"):
             if key in candidate and not isinstance(candidate[key], dict):
                 errors.append(f"candidate {candidate['id']}.{key}: 객체 필요")
+        errors.extend(f"candidate {candidate['id']}: {e}" for e in review_errors(candidate))
         if "gap_ids" in candidate and not valid_id_list(candidate["gap_ids"]):
             errors.append(f"candidate {candidate['id']}.gap_ids: 고유한 문자열 ID 배열 필요")
         if "gap_review" in candidate:
@@ -153,6 +154,8 @@ def validate(state, final=False):
             for candidate in state["candidates"]:
                 if candidate["id"] not in selected:
                     continue
+                if (candidate.get("review") or {}).get("stage", "detailed") != "detailed":
+                    errors.append(f"candidate {candidate['id']}: 최종 선택 전 상세 검토 필요")
                 for stage, status in candidate_stages(state, candidate).items():
                     if status not in ("complete", "partial") or (status == "partial" and not candidate.get("stage_notes", {}).get(stage) and not report.get("stage_notes", {}).get(stage)):
                         errors.append(f"candidate {candidate['id']}.stage {stage}: 재검토 완료 또는 사유 있는 partial 필요")
