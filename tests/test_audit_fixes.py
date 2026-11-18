@@ -109,3 +109,33 @@ class StageProgressTests(unittest.TestCase):
         self.assertTrue(validate(s, final=True))
         s['candidates'][0]['stage_notes'] = {'novelty': 'TEST declared limits'}
         self.assertEqual(validate(s, final=True), [])
+
+
+class DraftShapeTests(unittest.TestCase):
+    def test_wrong_parent_shapes_return_errors_without_tracebacks(self):
+        cases = [('candidate', key, value) for key in ('plan', 'novelty', 'gates', 'scores') for value in (None, [])]
+        cases += [('state', key, None) for key in ('profile', 'usage', 'stages')]
+        for kind, key, value in cases:
+            with self.subTest(kind=kind, key=key, value=value):
+                s = complete(); c = s['candidates'][0]
+                c['review'] = {'stage': 'screening', 'reason': 'TEST', 'next_actions': [], 'main_blocker': 'TEST'}
+                (c if kind == 'candidate' else s)[key] = value
+                self.assertTrue(validate(s))
+                with tempfile.TemporaryDirectory() as td:
+                    path = Path(td)/'state.json'; save(path, s); before = path.read_bytes()
+                    report = path.parent/'report.md'; report.write_text('Previous output')
+                    for command in ('validate', 'export'):
+                        result = subprocess.run([sys.executable, str(ROOT/'scripts/research.py'), command, str(path)], capture_output=True, text=True)
+                        self.assertEqual(result.returncode, 2, result.stdout+result.stderr)
+                        self.assertTrue(json.loads(result.stdout)['errors'])
+                        self.assertNotIn('Traceback', result.stderr)
+                    self.assertEqual(path.read_bytes(), before)
+                    self.assertEqual(report.read_text(), 'Previous output')
+
+    def test_review_command_rejects_bad_screening_parents_atomically(self):
+        from researchlib.evaluation import record_review
+        for key in ('plan', 'novelty'):
+            s = complete(); s['candidates'][0][key] = None; before = copy.deepcopy(s)
+            with self.assertRaises(ValueError):
+                record_review(s, 'TEST-C1', {'stage': 'screening', 'reason': 'TEST', 'next_actions': [], 'main_blocker': 'TEST'})
+            self.assertEqual(s, before)

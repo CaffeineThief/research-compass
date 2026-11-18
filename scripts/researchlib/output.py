@@ -39,6 +39,9 @@ def validate(state, final=False):
     for key in ("report", "search_plan"):
         if not isinstance(state.get(key, {}), dict):
             errors.append(f"{key}: 객체 필요")
+    for key in ("profile", "config", "usage", "stages"):
+        if not isinstance(state.get(key), dict):
+            errors.append(f"{key}: 객체 필요")
     if errors:
         return errors
     report = state.get("report", {})
@@ -62,7 +65,8 @@ def validate(state, final=False):
         for key in ("plan", "novelty", "gates", "scores"):
             if key in candidate and not isinstance(candidate[key], dict):
                 errors.append(f"candidate {candidate['id']}.{key}: 객체 필요")
-        errors.extend(f"candidate {candidate['id']}: {e}" for e in review_errors(candidate))
+        if all(isinstance(candidate.get(key, {}), dict) for key in ("plan", "novelty", "gates", "scores")):
+            errors.extend(f"candidate {candidate['id']}: {e}" for e in review_errors(candidate))
         if "gap_ids" in candidate and not valid_id_list(candidate["gap_ids"]):
             errors.append(f"candidate {candidate['id']}.gap_ids: 고유한 문자열 ID 배열 필요")
         if "gap_review" in candidate:

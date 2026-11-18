@@ -74,9 +74,12 @@ def review_errors(candidate):
         return ["review: screening/hold/detailed, 판단 이유, 다음 작업 배열 필요"]
     if review["stage"] != "detailed":
         plan = candidate.get("plan", {})
+        novelty = candidate.get("novelty", {})
+        if not isinstance(plan, dict) or not isinstance(novelty, dict):
+            return ["초기 선별: plan과 novelty 객체 형식을 먼저 확인해야 함"]
         if any(not isinstance(plan.get(k), str) or not plan[k].strip() for k in ("problem", "question")):
             return ["초기 선별: 문제·연구 질문 필요"]
-        if not candidate.get("novelty", {}).get("closest_paper_ids") or not review.get("main_blocker"):
+        if not novelty.get("closest_paper_ids") or not review.get("main_blocker"):
             return ["초기 선별: 가장 가까운 선행 연구 ID와 핵심 장애/확인 과제 필요"]
     return []
 

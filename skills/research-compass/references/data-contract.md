@@ -145,3 +145,5 @@ Crossref도 남은 예산만 요청하고, 제공처의 초과 응답을 제외�
 검색 이력은 `request_count/admitted_count/reused_count`로 요청·새 채택·재사용을 구분한다. 호스트 검색 예약은 요청 1회를 보수적으로 소비하며 취소·실패도 되돌리지 않는다. 동일 record-search 응답 재기록은 사용량을 늘리지 않는다. `search-review`는 완료된 검색에 `review`를 저장하며 action, reason, unresolved_questions, relevant_paper_ids를 검증한다. 리뷰 수정은 채택·요청 예산에 영향을 주지 않는다.
 
 진행 집계의 우선순위는 stale > in_progress > pending > partial > complete다. 후보의 단계와 전역 공통 단계 중 더 미완료인 상태를 사용하며, 전체 표시는 모든 후보를 함께 집계한다. 관련 검토 단계가 partial인 후보는 사유가 있어 최종 제안으로 기록할 수 있어도 실행 준비 평가는 conditional이다. pending/in_progress도 passed로 표시하지 않는다. 전역만 있는 기존 세션에도 같은 규칙을 적용한다. 선택하지 않은 후보만 미완료이면 전체 표시에는 남지만 해당 상태로 다른 선택 후보의 최종화를 막지 않는다.
+
+검증은 상위 객체 형식을 확인한 뒤 해당 하위 필드를 검사한다. 미완성 초안에서 plan/novelty/gates/scores 또는 profile/usage/stages의 형식이 잘못되면 validate/export는 errors 배열과 종료 코드 2를 반환한다. 실패로 원본 state나 기존 결과 파일을 덮어쓰지 않는다. screening/hold 검토 갱신도 필요한 plan·novelty 객체의 형식을 먼저 확인한다.
