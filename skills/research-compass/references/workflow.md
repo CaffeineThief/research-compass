@@ -7,8 +7,8 @@
 `claims`의 기존 text/kind/uncertainty에 `interpretation`(발췌가 주장을 어떻게 뒷받침하는지)을 추가한다. 각 evidence에는 다음 필드를 기록한다.
 
 - paper_id: 활성 문헌 대표 ID.
-- version: 실제 읽은 버전명. 대표 문헌과 다른 버전이면 `version_id`도 기록한다. `papers[].versions`에 저장된 ID와 일치해야 한다.
-- location: 실제 읽은 절·페이지·표. `read_evidence.location` 또는 `read_locations[].location`과 정확히 일치시킨다. read_locations는 공통 source 객체의 배열이며, 실제 원문을 확인한 뒤 추가한다.
+- version: 실제 읽은 버전명. 대표 문헌과 다른 버전이면 `version_id`도 기록한다. `papers[].versions`에 저장된 ID와 일치해야 한다. 주장·노벨티·근거 카드는 이 버전을 공통 기준으로 검사한다. 과거의 동일 ID·버전 스냅샷에 나뉜 열람 위치도 함께 확인한다.
+- location: 실제 읽은 절·페이지·표. 동일 버전을 다시 가져오면 추가 열람 위치를 병합하며 다른 버전의 위치는 해당 버전에 연결한다. `read_evidence.location` 또는 `read_locations[].location`과 정확히 일치시킨다. read_locations는 공통 source 객체의 배열이며, 실제 원문을 확인한 뒤 추가한다.
 - scope: abstract / partial / full_text. 읽은 범위보다 넓게 설정하지 않는다. 초록은 location=abstract도 허용한다.
 - excerpt: 수동 대조에 필요한 짧은 원문 발췌. 출처별 인용 허용 범위 안에서 최소한만 사용한다. 긴 본문을 복사하지 않는다.
 

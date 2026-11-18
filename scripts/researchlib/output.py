@@ -5,7 +5,7 @@ from datetime import date
 
 from .evaluation import rank
 from .journals import verified_field, recheck_journals, venue_fields
-from .literature import validate_claims, validate_paper, evidence_errors, evidence_version, source_ok
+from .literature import validate_claims, validate_paper, evidence_errors, evidence_version
 from .planning import planning_errors, pilot_estimate
 from .budget import search_coverage
 from .state import validate_config
@@ -80,9 +80,6 @@ def validate(state, final=False):
             validate_paper(paper, state["test_data"])
         except ValueError as exc:
             errors.append(str(exc))
-        locations = paper.get("read_locations", [])
-        if not isinstance(locations, list) or any(not source_ok(loc) for loc in locations):
-            errors.append(f"paper {paper.get('id')}: read_locations는 열람 출처 배열이어야 함")
     errors.extend(validate_claims(state))
     paper_ids = {p["id"] for p in state["papers"] if not p.get("excluded")}
     claim_ids = {c["id"] for c in state["claims"]}

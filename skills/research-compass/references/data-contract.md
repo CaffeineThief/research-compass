@@ -37,6 +37,7 @@ python3 "$SCRIPT" export ./research-run/state.json --format all
 - `version`: preprint / version-of-record / revised 또는 확인한 버전명; 미확인은 unspecified.
 - `access`: unavailable / abstract_only / partial / full_text.
 - partial/full_text에는 공통 source 형식의 `read_evidence` 필요. abstract_only에는 확보한 `abstract` 필요.
+- 동일 버전의 문헌을 다시 가져오면 실제 읽은 위치를 중복 제거해 병합한다. 대표 기록의 ID·버전은 보존한다. 다른 ID가 같은 DOI·버전명을 가리키면 대표 기록에서도 그 열람 근거를 사용한다.
 - 동일 연구의 서로 다른 DOI: 공통 `work_id`와 공통 source 형식의 `identity_evidence` 필요. 병합은 원래 대표 ID·열람 버전을 보존하고 다른 버전을 `versions`에 기록한다.
 - `excluded=true`는 기록을 삭제하지 않고 추천 근거에서 제외한다. 제외된 문헌을 참조하는 주장·후보는 재검토 전 검증 오류가 된다.
 
@@ -50,10 +51,14 @@ python3 "$SCRIPT" export ./research-run/state.json --format all
   "text": "확인한 주장 또는 명시적으로 구분한 해석",
   "kind": "author_claim",
   "limitation_kind": "author_acknowledged",
-  "evidence": [{"paper_id":"P1","location":"실제로 읽은 절·표","scope":"full_text"}],
+  "evidence": [{"paper_id":"P1","version":"실제로 읽은 버전명","location":"실제로 읽은 절·표","scope":"full_text"}],
   "uncertainty": "적용 범위 및 확인하지 못한 조건"
 }
 ```
+
+버전이 명시된 주장은 노벨티·근거 카드와 같은 버전 선택 및 위치·범위 검사로 검증한다. 대표 문헌이 초록 상태여도 인용한 다른 버전의 본문을 실제 열람했다면 그 버전을 검사한다. 버전명이 같고 ID가 다른 기록은 `version_id`로 지정한다. 같은 ID·버전명에 서로 다른 DOI가 연결되어 모호하면 각 버전의 ID를 정리해야 한다.
+
+버전 정보가 전혀 없는 기존 주장은 일반 초안 검증에서 기존 접근 상태 검사를 유지한다. `version` 또는 `version_id`를 하나라도 지정하면 명시적 버전 검사를 적용하고, 최종 검증에는 버전·열람 위치·범위를 모두 기록해야 한다.
 
 `kind`: fact / author_claim / interpretation / hypothesis. `limitation_kind`는 해당 없으면 null, 아니면 author_acknowledged / empirically_confirmed / agent_inferred. 초록 근거는 `scope=abstract`만 허용한다. partial이면 실제 확인한 절에 한정해 `scope=partial`로 기록한다.
 

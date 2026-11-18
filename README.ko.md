@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#설치">설치</a> · <a href="#사용법">사용법</a> · <a href="#결과-파일">결과 파일</a> · <a href="README.md">English</a> · v1.0.0
+  <a href="#설치">설치</a> · <a href="#사용법">사용법</a> · <a href="#결과-파일">결과 파일</a> · <a href="README.md">English</a> · v1.0.1
 </p>
 
 ---
