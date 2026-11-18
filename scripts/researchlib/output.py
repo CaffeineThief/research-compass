@@ -3,9 +3,9 @@ import math
 import json
 from datetime import date
 
-from .evaluation import rank, gap_errors
+from .evaluation import rank
 from .journals import verified_field, recheck_journals, venue_fields
-from .literature import validate_claims, validate_paper, evidence_errors, evidence_version, valid_id_list
+from .literature import validate_claims, validate_paper, evidence_errors, evidence_version, source_ok
 from .planning import planning_errors, pilot_estimate
 from .budget import search_coverage
 from .state import validate_config
@@ -50,15 +50,6 @@ def validate(state, final=False):
         for key in ("plan", "novelty", "gates", "scores"):
             if key in candidate and not isinstance(candidate[key], dict):
                 errors.append(f"candidate {candidate['id']}.{key}: 객체 필요")
-        if "gap_ids" in candidate and not valid_id_list(candidate["gap_ids"]):
-            errors.append(f"candidate {candidate['id']}.gap_ids: 고유한 문자열 ID 배열 필요")
-        if "gap_review" in candidate:
-            review = candidate["gap_review"]
-            if (not isinstance(review, dict)
-                    or not isinstance(review.get("reason"), str) or not review["reason"].strip()
-                    or not isinstance(review.get("next_actions"), list) or not review["next_actions"]
-                    or any(not isinstance(action, str) or not action.strip() for action in review["next_actions"])):
-                errors.append(f"candidate {candidate['id']}.gap_review: 부족 사유와 다음 확인 작업 배열 필요")
     for claim in state["claims"]:
         refs = claim.get("evidence", [])
         if not isinstance(refs, list) or any(not isinstance(ref, dict) for ref in refs):
@@ -89,21 +80,20 @@ def validate(state, final=False):
             validate_paper(paper, state["test_data"])
         except ValueError as exc:
             errors.append(str(exc))
+        locations = paper.get("read_locations", [])
+        if not isinstance(locations, list) or any(not source_ok(loc) for loc in locations):
+            errors.append(f"paper {paper.get('id')}: read_locations는 열람 출처 배열이어야 함")
     errors.extend(validate_claims(state))
     paper_ids = {p["id"] for p in state["papers"] if not p.get("excluded")}
     claim_ids = {c["id"] for c in state["claims"]}
-    gap_ids = {g["id"] for g in state["gaps"]}
     for gap in state["gaps"]:
-        refs = gap.get("claim_ids")
-        if not valid_id_list(refs) or not refs or set(refs) - claim_ids:
+        if not gap.get("claim_ids") or set(gap["claim_ids"]) - claim_ids:
             errors.append(f"gap {gap.get('id')}: 근거 주장 참조 필요")
     for candidate in state["candidates"]:
         if not candidate.get("paper_ids") or set(candidate["paper_ids"]) - paper_ids:
             errors.append(f"candidate {candidate.get('id')}: 없거나 제외된 근거 문헌")
         if not candidate.get("title"):
             errors.append("후보 제목 누락")
-        if set(candidate.get("gap_ids", [])) - gap_ids:
-            errors.append(f"candidate {candidate['id']}.gap_ids: 없는 연구 공백 참조")
         errors.extend(f"candidate {candidate['id']}: {e}" for e in planning_errors(candidate))
     candidate_ids = {c["id"] for c in state["candidates"]}
     for journal in state["journals"]:
@@ -142,7 +132,6 @@ def validate(state, final=False):
             for candidate in state["candidates"]:
                 if candidate["id"] not in selected:
                     continue
-                errors.extend(f"candidate {candidate['id']}: {issue}" for issue in gap_errors(candidate, state))
                 if next(r for r in rank(state) if r['id'] == candidate['id'])["status"] == "rejected":
                     errors.append(f"candidate {candidate['id']}: 탈락 후보는 최종 추천 불가")
                 errors.extend(f"candidate {candidate['id']}: {e}" for e in planning_errors(candidate, final=True))
@@ -207,22 +196,6 @@ def markdown(state):
     for r in selected:
         c = by_id[r["id"]]
         lines += ["", f"## {c['id']}: {c['title']} ({r['status']})", ""]
-        lines += ["### 연구 공백과 문헌 근거 연결", ""]
-        missing_links = gap_errors(c, state)
-        gaps = {gap["id"]: gap for gap in state["gaps"]}
-        claims = {claim["id"]: claim for claim in state["claims"]}
-        for gid in c.get("gap_ids", []):
-            gap = gaps.get(gid)
-            if gap is None:
-                continue
-            for cid in gap.get("claim_ids", []):
-                for ref in claims.get(cid, {}).get("evidence", []):
-                    lines.append(f"- {cell(gid)} → {cell(cid)} → {cell(ref.get('paper_id'))} / 버전 {cell(ref.get('version'))} / {cell(ref.get('location'))}")
-        if missing_links:
-            lines.extend(f"- 확인 과제: {issue}" for issue in missing_links)
-            review = c.get("gap_review", {})
-            lines.append(f"- 근거 부족 사유: {review.get('reason') or '미작성 — 확인한 부족 사유를 기록하세요.'}")
-            lines.extend(f"- 다음 확인 작업: {action}" for action in review.get("next_actions", ["연구 공백·주장·실제 열람 문헌의 연결을 확인하세요."]))
         lines += ["### 평가 근거", "", f"가중치: {state['config']['weights']}", ""]
         lines.extend(f"- 필수 조건 {key}: {value}" for key, value in c.get("gates", {}).items())
         lines.extend(f"- 점수 {key}: {value}" for key, value in c.get("scores", {}).items())

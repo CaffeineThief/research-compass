@@ -246,7 +246,6 @@ class WorkflowTests(unittest.TestCase):
         s['papers'][0]['versions'] = [version]
         for axis in s['candidates'][0]['novelty']['comparison'].values():
             axis['evidence'][0].update(version='version-of-record', version_id='TEST-V2')
-        s['claims'][0]['evidence'][0].update(version='version-of-record', version_id='TEST-V2')
         self.assertEqual(rank(s)[0]['status'], 'passed')
 
     def test_final_export_failure_preserves_previous_artifact(self):

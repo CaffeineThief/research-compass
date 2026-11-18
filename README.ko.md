@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#설치">설치</a> · <a href="#사용법">사용법</a> · <a href="#결과-파일">결과 파일</a> · <a href="README.md">English</a> · v1.0.2
+  <a href="#설치">설치</a> · <a href="#사용법">사용법</a> · <a href="#결과-파일">결과 파일</a> · <a href="README.md">English</a> · v1.0.0
 </p>
 
 ---
@@ -56,8 +56,6 @@ $research-compass:research-compass
 이어서 작업하려면 같은 스킬을 호출하고 `state.json` 경로와 변경할 조건을 전달하세요. GitHub에 직접 업로드할 때는 개인 연구 결과가 담긴 `runs/`를 제외하세요.
 
 파일럿 측정, 검색 예산, 투고처 재확인과 최종 보고서 검증은 [실행 절차](skills/research-compass/references/workflow.md)에, CLI 사용법과 저장 형식은 [데이터 계약](skills/research-compass/references/data-contract.md)에 있습니다.
-
-수정·개선 작업의 순서와 완료 기준은 [개선 실행 계획](docs/IMPROVEMENT_PLAN.md)에서 확인할 수 있습니다.
 
 ## 라이선스
 

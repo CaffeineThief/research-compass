@@ -5,12 +5,6 @@ from urllib.parse import urlparse
 ACCESS = ("unavailable", "abstract_only", "partial", "full_text")
 
 
-def valid_id_list(value):
-    return (isinstance(value, list)
-            and all(isinstance(item, str) and item.strip() for item in value)
-            and len(value) == len(set(value)))
-
-
 def doi_key(value):
     return re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", value.strip(), flags=re.I).lower()
 
@@ -33,8 +27,6 @@ def source_ok(source):
 
 
 def validate_paper(paper, test_data):
-    if not isinstance(paper, dict):
-        raise ValueError("문헌과 버전 기록은 객체여야 합니다.")
     for key in ("id", "title", "version", "access", "checked_at", "source"):
         if not paper.get(key):
             raise ValueError(f"논문 {paper.get('id', '?')}: {key} 누락")
@@ -47,34 +39,6 @@ def validate_paper(paper, test_data):
             raise ValueError("전문/일부 확인에는 실제 읽은 파일 또는 URL과 위치가 필요합니다.")
     if paper["access"] == "abstract_only" and not paper.get("abstract"):
         raise ValueError("초록 확인 상태에는 실제 확보한 초록이 필요합니다.")
-    locations = paper.get("read_locations", [])
-    if not isinstance(locations, list) or any(not source_ok(loc) for loc in locations):
-        raise ValueError("read_locations는 유효한 열람 출처 배열이어야 합니다.")
-    versions = paper.get("versions", [])
-    if not isinstance(versions, list):
-        raise ValueError("versions는 문헌 버전 배열이어야 합니다.")
-    for version in versions:
-        validate_paper(version, test_data)
-
-
-def merge_version(current, incoming):
-    """Combine reading records only after the caller establishes version identity."""
-    locations = []
-    for record in (current, incoming):
-        if record.get("access") in ("partial", "full_text"):
-            for location in record.get("read_locations", []) + [record.get("read_evidence")]:
-                if source_ok(location) and location not in locations:
-                    locations.append(copy.deepcopy(location))
-    for key, value in incoming.items():
-        if key not in ("versions", "aliases") and (key not in current or current[key] is None):
-            current[key] = copy.deepcopy(value)
-    if ACCESS.index(incoming["access"]) > ACCESS.index(current["access"]):
-        for key in ("access", "read_evidence", "abstract", "checked_at", "supplements", "code", "data"):
-            if key in incoming:
-                current[key] = copy.deepcopy(incoming[key])
-    if locations and ("read_locations" in current or "read_locations" in incoming
-                      or any(location != current.get("read_evidence") for location in locations)):
-        current["read_locations"] = locations
 
 
 def merge_papers(existing, incoming, test_data):
@@ -99,20 +63,21 @@ def merge_papers(existing, incoming, test_data):
         if current.get("doi") and paper.get("doi") and current["doi"] != paper["doi"] and not source_ok(paper.get("identity_evidence")):
             raise ValueError("서로 다른 DOI 병합에는 동일 연구라는 확인 근거가 필요합니다.")
         snapshot = {k: v for k, v in paper.items() if k not in ("versions", "aliases")}
-        targets = [record for record in [current] + current["versions"]
-                   if record["id"] == paper["id"] and record["version"] == paper["version"]
-                   and record.get("doi") == paper.get("doi")]
-        if targets:
-            for target in targets:
-                merge_version(target, snapshot)
-        else:
+        original = {k: v for k, v in current.items() if k not in ("versions", "aliases")}
+        if snapshot != original and snapshot not in current["versions"]:
             current["versions"].append(snapshot)
         for alias in [paper["id"], paper.get("doi")]:
             if alias and alias != current["id"] and alias not in current["aliases"]:
                 current["aliases"].append(alias)
-        # A shared DOI identifies the same version even when an import uses another ID.
-        if current["version"] == paper["version"] and current.get("doi") and current["doi"] == paper.get("doi"):
-            merge_version(current, snapshot)
+        # Keep the read version stable: a metadata search must not replace read evidence.
+        for key, value in paper.items():
+            if key not in current or current[key] is None:
+                current[key] = value
+        same_version = current["version"] == paper["version"] and current.get("doi") == paper.get("doi")
+        if same_version and ACCESS.index(paper["access"]) > ACCESS.index(current["access"]):
+            for key in ("access", "read_evidence", "abstract", "checked_at", "supplements", "code", "data"):
+                if key in paper:
+                    current[key] = paper[key]
     return result
 
 
@@ -134,10 +99,6 @@ def validate_claims(state):
         if not claim.get("evidence"):
             errors.append(f"claim {cid}: 근거 위치 필요")
         for evidence in claim.get("evidence", []):
-            if "version" in evidence or "version_id" in evidence:
-                errors.extend(f"claim {cid}: {issue}" for issue in evidence_errors(evidence, state))
-                continue
-            # Versionless legacy drafts retain their original checks until final validation.
             paper = papers.get(evidence.get("paper_id"))
             if not paper or not evidence.get("location"):
                 errors.append(f"claim {cid}: 없거나 제외된 논문/근거 위치")
@@ -164,12 +125,7 @@ def evidence_version(evidence, state):
     versions = [paper] + paper.get("versions", [])
     matches = [p for p in versions if p.get("version") == evidence.get("version")
                and p.get("id") == evidence.get("version_id", paper["id"])]
-    if not matches or len({p["doi"] for p in matches if p.get("doi")}) > 1:
-        return None
-    version = copy.deepcopy(matches[0])
-    for record in matches[1:]:
-        merge_version(version, record)
-    return version
+    return max(matches, key=lambda p: ACCESS.index(p.get('access', 'unavailable')), default=None)
 
 
 def evidence_errors(evidence, state, excerpt=False):

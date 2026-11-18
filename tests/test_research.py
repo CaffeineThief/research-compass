@@ -31,7 +31,7 @@ def paper(pid="TEST-P1", access="full_text", test_data=True):
 
 
 def candidate():
-    return {"id": "TEST-C1", "title": "TEST ONLY — Candidate", "paper_ids": ["TEST-P1"], "gap_ids": ["TEST-G1"],
+    return {"id": "TEST-C1", "title": "TEST ONLY — Candidate", "paper_ids": ["TEST-P1"],
             "gates": {k: {"status": "pass", "reason": "Fixture confirmation", "evidence": source()} for k in GATES},
             "scores": {k: {"value": 5, "reason": "Fixture reasoning", "uncertainty": "Fixture uncertainty", "evidence": source()} for k in CRITERIA},
             "novelty": {"status": "distinct_within_scope", "search_ids": ["TEST-S1"], "closest_paper_ids": ["TEST-P1"],
@@ -41,11 +41,6 @@ def candidate():
 def state():
     s = new_state("TEST ONLY — research", True)
     s["papers"] = [paper()]
-    s["claims"] = [{"id": "TEST-CL1", "kind": "interpretation", "text": "Synthetic claim",
-                    "interpretation": "Synthetic interpretation", "uncertainty": "TEST ONLY",
-                    "evidence": [{"paper_id": "TEST-P1", "version": "preprint", "scope": "full_text",
-                                  "location": source()["location"], "excerpt": "Synthetic short excerpt."}]}]
-    s["gaps"] = [{"id": "TEST-G1", "title": "TEST ONLY — Gap", "claim_ids": ["TEST-CL1"]}]
     s["search_log"] = [{"id": "TEST-S1", "branch": "novelty", "status": "ok", "query": "TEST ONLY"}]
     s["candidates"] = [candidate()]
     return s
