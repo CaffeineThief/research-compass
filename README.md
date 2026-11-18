@@ -57,6 +57,8 @@ To resume, invoke the skill with the path to `state.json` and describe the chang
 
 The [workflow guide](skills/research-compass/references/workflow.md) covers pilot measurements, search budgets, venue rechecks, and final report validation. The [data contract](skills/research-compass/references/data-contract.md) covers CLI usage and file formats. Both guides are in Korean.
 
+Planned fixes and enhancements are tracked in the [improvement plan](docs/IMPROVEMENT_PLAN.md), written in Korean.
+
 ## License
 
 Research Compass is released under the [MIT License](LICENSE).

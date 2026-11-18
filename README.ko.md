@@ -57,6 +57,8 @@ $research-compass:research-compass
 
 파일럿 측정, 검색 예산, 투고처 재확인과 최종 보고서 검증은 [실행 절차](skills/research-compass/references/workflow.md)에, CLI 사용법과 저장 형식은 [데이터 계약](skills/research-compass/references/data-contract.md)에 있습니다.
 
+수정·개선 작업의 순서와 완료 기준은 [개선 실행 계획](docs/IMPROVEMENT_PLAN.md)에서 확인할 수 있습니다.
+
 ## 라이선스
 
 Research Compass는 [MIT 라이선스](LICENSE)로 배포합니다.
