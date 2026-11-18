@@ -149,3 +149,18 @@ Crossref도 남은 예산만 요청하고, 제공처의 초과 응답을 제외�
 검증은 상위 객체 형식을 확인한 뒤 해당 하위 필드를 검사한다. 미완성 초안에서 plan/novelty/gates/scores 또는 profile/usage/stages의 형식이 잘못되면 validate/export는 errors 배열과 종료 코드 2를 반환한다. 실패로 원본 state나 기존 결과 파일을 덮어쓰지 않는다. screening/hold 검토 갱신도 필요한 plan·novelty 객체의 형식을 먼저 확인한다.
 
 search-review의 relevant_paper_ids는 질의의 실제 채택·재사용 기록과 대조한다. 결과의 id/paper_id/doi/url과 문헌·버전의 id/doi/url/aliases로 연결을 확인한다. 새 리뷰의 미연결·모호한 문헌은 저장 전 오류로 거부하며 별칭은 대표 ID로 기록한다. coverage는 기존 이력을 변경하지 않고 result_paper_ids, result_link_status와 확인 가능한 new_relevant를 보여 준다. 연결이 불완전한 과거 이력은 null로 표시한다.
+
+
+### 범위 축소 검토
+
+후보를 좁힐 때 선택적 scope_review를 사용한다. 이 필드가 없는 기존 세션은 그대로 읽으며, 스크립트가 문장만 보고 축소 여부를 자동 판별하지 않는다. 호스트는 축소가 필요한 상황에서 기록을 생성한다.
+
+```sh
+python3 "$SCRIPT" review-scope ./research-run/state.json C1 ./scope-review.json
+```
+
+필드는 original_question, narrowed_question, reason, knowledge_gain(새 지식), decision_impact(결과가 바꿀 판단), scope_loss(잃는 범위와 원래 문제의 의미), alternative(더 넓은 문제를 유지할 대안), rationale, verdict, next_actions(문자열 배열), evidence(기존 문헌의 ID·버전·열람 위치·범위 참조 배열)다. verdict는 pending/retain/revise/discard다. pending은 앞의 두 질문·reason·비어 있지 않은 next_actions부터 작성하고 미확인 가치를 만들어 채우지 않는다. 완료 판정에는 모든 설명 필드를 기록하며 retain 축소안을 실제 채택하려면 읽은 본문 근거가 필요하다. 근거 배열의 형식은 기존 주장 참조와 같다.
+
+현재 plan.question이 narrowed_question인 경우 retain 판정과 본문 근거를 확인하며, 미완료·재설계·폐기 판정은 조건부와 최종 검증 오류로 처리한다. 현재 질문이 original_question이면 원래 질문을 유지한 것으로 읽고 축소안의 폐기 때문에 원래 후보를 자동 탈락시키지 않는다. 둘 다 아니면 검토 갱신이 필요하다. 비교 대상 질문을 문구 변경한 경우 검토 기록도 맞춰 갱신한다.
+
+명령은 scope_review_history에 시각·검토 내용을 보존하고 해당 후보의 candidates 이후를 stale로 만든다. 같은 검토의 반복 기록은 이력·사용량을 늘리지 않는다. 다른 후보나 원래 question을 자동 수정하지 않으며, 잘못된 입력은 저장 전에 거부한다. 자동 검증은 검토 내용의 존재·문헌 연결·현재 질문과의 대응을 확인하고, 연구 가치 자체의 타당성 판단은 원문을 대조하는 에이전트가 맡는다.

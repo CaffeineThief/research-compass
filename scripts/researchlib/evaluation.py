@@ -108,11 +108,89 @@ def record_review(state, candidate_id, review):
     return review
 
 
+SCOPE_REVIEW_FIELDS = {
+    "original_question": "원래 연구 질문", "narrowed_question": "축소 제안 질문", "reason": "축소가 필요한 이유",
+    "knowledge_gain": "새로 알게 될 내용", "decision_impact": "결과가 바꿀 학술적·실용적 판단",
+    "scope_loss": "잃는 범위와 원래 문제에 남는 의미", "alternative": "더 넓은 문제를 유지할 대안",
+    "rationale": "축소안 유지·재설계·폐기 판단 근거"
+}
+
+
+def scope_review_errors(candidate):
+    if "scope_review" not in candidate:
+        return []
+    review = candidate["scope_review"]
+    if not isinstance(review, dict):
+        return ["scope_review: 객체 필요"]
+    errors = []
+    verdict = review.get("verdict")
+    if verdict not in ("pending", "retain", "revise", "discard"):
+        errors.append("scope_review.verdict: pending/retain/revise/discard 필요")
+    fields = ("original_question", "narrowed_question", "reason") if verdict == "pending" else SCOPE_REVIEW_FIELDS
+    for field in fields:
+        if not isinstance(review.get(field), str) or not review[field].strip():
+            errors.append(f"scope_review.{field}: 축소 전후의 연구 가치 검토 내용 필요")
+    actions = review.get("next_actions")
+    if not isinstance(actions, list) or any(not isinstance(a, str) or not a.strip() for a in actions) or (verdict in ("pending", "revise") and not actions):
+        errors.append("scope_review.next_actions: 다음 확인·재설계 작업 배열 필요")
+    refs = review.get("evidence", [])
+    if not isinstance(refs, list) or any(not isinstance(ref, dict) for ref in refs):
+        errors.append("scope_review.evidence: 문헌 근거 객체 배열 필요")
+    return errors
+
+
+def scope_review_reasons(candidate, state):
+    errors = scope_review_errors(candidate)
+    if errors or "scope_review" not in candidate:
+        return errors
+    review = candidate["scope_review"]
+    plan = candidate.get("plan")
+    question = plan.get("question") if isinstance(plan, dict) else None
+    if question == review["original_question"]:
+        return []
+    if question != review["narrowed_question"]:
+        return ["scope_review: 현재 연구 질문과 축소 검토가 달라 재검토 필요"]
+    if review["verdict"] != "retain":
+        return ["scope_review: 유지 가치가 확인되지 않은 축소안을 최종 질문으로 채택할 수 없음"]
+    read_support = False
+    for ref in review.get("evidence", []):
+        issues = evidence_errors(ref, state)
+        errors.extend(f"scope_review: {issue}" for issue in issues)
+        if not issues and ref.get("scope") in ("partial", "full_text"):
+            read_support = True
+    if not read_support:
+        errors.append("scope_review: 축소 뒤 남는 연구 가치에 연결한 실제 본문 근거 필요")
+    return errors
+
+
+def record_scope_review(state, candidate_id, review):
+    import copy
+    candidate = next((c for c in state["candidates"] if c["id"] == candidate_id), None)
+    if candidate is None:
+        raise ValueError("후보 ID를 찾을 수 없습니다.")
+    errors = scope_review_errors({"scope_review": review})
+    if errors:
+        raise ValueError("; ".join(errors))
+    history = candidate.get("scope_review_history", [])
+    if not isinstance(history, list):
+        raise ValueError("scope_review_history: 검토 이력 배열 필요")
+    if candidate.get("scope_review") == review:
+        return review
+    candidate.setdefault("scope_review_history", []).append({"at": now(), "review": copy.deepcopy(review)})
+    candidate["scope_review"] = copy.deepcopy(review)
+    invalidate(state, "candidates", "범위 축소 가치 검토 갱신: " + candidate_id, [candidate_id])
+    return review
+
+
 def evaluate(candidate, state):
     reasons, conditional, failed = [], False, False
     if any(candidate_stages(state, candidate).get(s) != "complete" for s in ("search", "analysis", "gaps", "candidates", "novelty", "evaluation")):
         conditional = True
         reasons.append("관련 단계 미완료·부분 완료 또는 변경 후 재검토 필요")
+    scope_issues = scope_review_reasons(candidate, state)
+    if scope_issues:
+        conditional = True
+        reasons.extend(scope_issues)
     for name in GATES:
         gate = candidate.get("gates", {}).get(name, {})
         status = gate.get("status", "unknown")

@@ -3,7 +3,8 @@ import math
 import json
 from datetime import date
 
-from .evaluation import rank, gap_errors, novelty_errors, review_errors, selected_candidates
+from .evaluation import (rank, gap_errors, novelty_errors, review_errors, selected_candidates,
+                         scope_review_errors, scope_review_reasons, SCOPE_REVIEW_FIELDS)
 from .journals import verified_field, recheck_journals, venue_fields, schedule_check, submission_plan, zone
 from .literature import validate_claims, validate_paper, evidence_errors, evidence_version, valid_id_list
 from .planning import planning_errors, pilot_estimate, resource_budget, resource_check
@@ -67,6 +68,7 @@ def validate(state, final=False):
                 errors.append(f"candidate {candidate['id']}.{key}: 객체 필요")
         if all(isinstance(candidate.get(key, {}), dict) for key in ("plan", "novelty", "gates", "scores")):
             errors.extend(f"candidate {candidate['id']}: {e}" for e in review_errors(candidate))
+        errors.extend(f"candidate {candidate['id']}: {e}" for e in scope_review_errors(candidate))
         if "gap_ids" in candidate and not valid_id_list(candidate["gap_ids"]):
             errors.append(f"candidate {candidate['id']}.gap_ids: 고유한 문자열 ID 배열 필요")
         if "gap_review" in candidate:
@@ -175,6 +177,7 @@ def validate(state, final=False):
                 for stage, status in candidate_stages(state, candidate).items():
                     if status not in ("complete", "partial") or (status == "partial" and not candidate.get("stage_notes", {}).get(stage) and not report.get("stage_notes", {}).get(stage)):
                         errors.append(f"candidate {candidate['id']}.stage {stage}: 재검토 완료 또는 사유 있는 partial 필요")
+                errors.extend(f"candidate {candidate['id']}: {issue}" for issue in scope_review_reasons(candidate, state))
                 errors.extend(f"candidate {candidate['id']}: {issue}" for issue in gap_errors(candidate, state))
                 errors.extend(f"candidate {candidate['id']}: {issue}" for issue in novelty_errors(candidate, state))
                 if next(r for r in rank(state) if r['id'] == candidate['id'])["status"] == "rejected":
@@ -210,7 +213,8 @@ def markdown(state):
         tasks = [t["text"] for t in c.get("first_week", []) if not t.get("done")]
         actions = (c.get("review") or {}).get("next_actions", [])
         risk = plan.get("resources_risks") or "; ".join(results[c["id"]]["reasons"])
-        action = next(iter(tasks or actions), "미정 — 첫 주 작업 작성 필요")
+        scope_actions = (c.get("scope_review") or {}).get("next_actions", []) if scope_review_reasons(c, state) else []
+        action = next(iter(scope_actions or tasks or actions), "미정 — 첫 주 작업 작성 필요")
         values = [f"[{cell(c['id'])}: {cell(c['title'])}](#candidate-{index}) / {results[c['id']]['status']}",
                   plan.get("problem"), plan.get("question"), plan.get("method") or plan.get("minimum_experiment"),
                   plan.get("expected_contribution"), risk or "미정 — 위험 검토 필요", action]
@@ -266,6 +270,18 @@ def markdown(state):
             lines += [f"검토 단계: {c['review']['stage']} / 이유: {c['review']['reason']}", ""]
         for key, title in RESEARCH_FLOW_FIELDS.items():
             lines += [f"### {title}", "", str(c.get("plan", {}).get(key) or "미정 — 추가 확인 필요"), ""]
+        if "scope_review" in c:
+            review = c["scope_review"]
+            labels = {"pending": "검토 중", "retain": "축소안 유지", "revise": "재설계", "discard": "축소안 폐기"}
+            question = c.get("plan", {}).get("question")
+            choice = "원래 질문 유지" if question == review["original_question"] else "축소 제안 질문" if question == review["narrowed_question"] else "질문 변경으로 검토 갱신 필요"
+            lines += ["### 범위 축소 가치 검토", "", f"- 판단: {labels[review['verdict']]} / 현재 계획: {choice}"]
+            lines.extend(f"- {label}: {review.get(key) or '미검토'}" for key, label in SCOPE_REVIEW_FIELDS.items())
+            for ref in review.get("evidence", []):
+                issues = evidence_errors(ref, state)
+                lines.append(f"- 검토 근거: {cell(ref.get('paper_id'))} / {cell(ref.get('version'))} / {cell(ref.get('location'))} / {'; '.join(issues) or '열람 기록 연결 확인'}")
+            lines.extend(f"- 다음 검토: {action}" for action in review["next_actions"])
+            lines += [""]
         lines += ["### 연구 공백과 문헌 근거 연결", ""]
         missing_links = gap_errors(c, state)
         gaps = {gap["id"]: gap for gap in state["gaps"]}

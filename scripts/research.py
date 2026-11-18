@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from researchlib.evaluation import rank, record_review
+from researchlib.evaluation import rank, record_review, record_scope_review
 from researchlib.budget import reserve_search, record_search, search_coverage, review_search
 from researchlib.literature import merge_papers
 from researchlib.output import bibliography, markdown, validate, evidence_cards
@@ -22,7 +22,7 @@ def parser():
     init.add_argument("directory")
     init.add_argument("--topic", required=True)
     init.add_argument("--test-data", action="store_true")
-    for name in ("search", "reserve-search", "record-search", "search-review", "import-papers", "profile", "config", "exclude", "invalidate", "reserve-agents", "validate", "evaluate", "export", "coverage", "journal-recheck", "review-candidate", "record-pilot", "pilot-estimate", "checklist"):
+    for name in ("search", "reserve-search", "record-search", "search-review", "import-papers", "profile", "config", "exclude", "invalidate", "reserve-agents", "validate", "evaluate", "export", "coverage", "journal-recheck", "review-candidate", "review-scope", "record-pilot", "pilot-estimate", "checklist"):
         cmd = sub.add_parser(name)
         cmd.add_argument("state", help="state.json 경로")
         if name in ("search", "reserve-search"):
@@ -51,9 +51,9 @@ def parser():
             cmd.add_argument("--format", choices=("md", "bib", "ris", "cards", "checklist", "all"), default="all")
         if name in ("validate", "export"):
             cmd.add_argument("--final", action="store_true", help="최종 보고서 준비 상태 검증")
-        if name in ("record-pilot", "pilot-estimate", "review-candidate"):
+        if name in ("record-pilot", "pilot-estimate", "review-candidate", "review-scope"):
             cmd.add_argument("candidate_id")
-        if name in ("record-pilot", "review-candidate"):
+        if name in ("record-pilot", "review-candidate", "review-scope"):
             cmd.add_argument("file", help="후보별 기록 JSON")
         if name == "checklist":
             cmd.add_argument("--candidate", required=True)
@@ -79,6 +79,8 @@ def main():
         result = search_coverage(state)
     elif args.command == "journal-recheck":
         result = recheck_journals(state, args.as_of, args.max_age_days)
+    elif args.command == "review-scope":
+        result = record_scope_review(state, args.candidate_id, json.loads(Path(args.file).read_text(encoding="utf-8")))
     elif args.command == "review-candidate":
         result = record_review(state, args.candidate_id, json.loads(Path(args.file).read_text(encoding="utf-8")))
     elif args.command in ("record-pilot", "pilot-estimate"):
