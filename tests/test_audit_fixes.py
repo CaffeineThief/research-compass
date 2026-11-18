@@ -28,6 +28,15 @@ class FinalNoveltyTests(unittest.TestCase):
                 self.assertEqual(validate(s), [])
                 self.assertTrue(validate(s, final=True))
 
+    def test_final_requires_completed_candidate_novelty_search(self):
+        for change in ('missing_search', 'failed_search', 'wrong_branch', 'pending_verdict'):
+            s = complete(); c = s['candidates'][0]
+            if change == 'missing_search': c['novelty']['search_ids'] = ['ABSENT-SEARCH']
+            elif change == 'failed_search': s['search_log'][0]['status'] = 'failed'
+            elif change == 'wrong_branch': s['search_log'][0]['branch'] = 'recent'
+            else: c['novelty']['status'] = 'pending'
+            self.assertTrue(validate(s, final=True), change)
+
     def test_secondary_version_and_pending_resources_remain_reportable(self):
         s = complete(); c = s['candidates'][0]
         p = s['papers'][0]; v = paper('TEST-VOR'); v['version'] = 'version-of-record'

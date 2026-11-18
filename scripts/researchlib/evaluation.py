@@ -39,10 +39,17 @@ def gap_errors(candidate, state):
 
 def novelty_errors(candidate, state):
     novelty = candidate.get("novelty", {})
+    errors, cited = [], set()
+    searches = {s["id"]: s for s in state["search_log"]}
+    search_ids = novelty.get("search_ids", [])
+    checked = valid_id_list(search_ids) and bool(search_ids) and all(
+        sid in searches and searches[sid].get("status") == "ok" and searches[sid].get("branch") == "novelty"
+        for sid in search_ids)
+    if novelty.get("status") != "distinct_within_scope" or not checked or not novelty.get("uncertainty"):
+        errors.append("후보별 노벨티 재검색/비교 미완료")
     comparison = novelty.get("comparison")
     if not isinstance(comparison, dict):
-        return ["노벨티: 근거를 연결한 6축 비교 필요"]
-    errors, cited = [], set()
+        return errors + ["노벨티: 근거를 연결한 6축 비교 필요"]
     for key, korean in AXES.items():
         axis = comparison.get(key, comparison.get(korean))
         if not isinstance(axis, dict) or not axis.get("difference") or not isinstance(axis.get("evidence"), list) or not axis["evidence"]:
@@ -58,7 +65,7 @@ def novelty_errors(candidate, state):
         if not read_support:
             errors.append(f"노벨티 {key}: 비교할 본문 근거 필요")
     closest = novelty.get("closest_paper_ids", [])
-    if not closest or any(pid not in cited for pid in closest):
+    if not valid_id_list(closest) or not closest or any(pid not in cited for pid in closest):
         errors.append("가장 가까운 문헌의 본문과 비교 근거 확인 필요")
     return errors
 
@@ -123,15 +130,9 @@ def evaluate(candidate, state):
                 "reasons": reasons + ["상세 검토 전: " + review.get("reason", "판단 기록 필요")]
                            + review_errors(candidate)}
     novelty = candidate.get("novelty", {})
-    searches = {s["id"]: s for s in state["search_log"]}
-    search_ids = novelty.get("search_ids", [])
-    checked = bool(search_ids) and all(s in searches and searches[s].get("status") == "ok" and searches[s].get("branch") == "novelty" for s in search_ids)
     if novelty.get("status") == "duplicate":
         failed = True
         reasons.append("후보별 재검색에서 차별성 부족")
-    elif novelty.get("status") != "distinct_within_scope" or not checked or not novelty.get("comparison") or not novelty.get("uncertainty"):
-        conditional = True
-        reasons.append("후보별 노벨티 재검색/비교 미완료")
     missing = novelty_errors(candidate, state)
     if missing:
         conditional = True
