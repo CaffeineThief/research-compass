@@ -44,6 +44,7 @@ def candidate():
 
 def state():
     s = new_state("TEST ONLY — research", True)
+    s["stages"] = dict.fromkeys(s["stages"], "complete")
     s["papers"] = [paper()]
     s["profile"]["resource_budget"] = {"status": "confirmed", "weeks": 8, "gpu_hours_per_week": 20,
                                        "work_hours_per_week": 10, "source": source()}

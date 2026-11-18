@@ -143,3 +143,5 @@ Crossref도 남은 예산만 요청하고, 제공처의 초과 응답을 제외�
 후보의 선택적 `stages`와 `stage_notes`는 전역과 같은 단계명·상태를 쓴다. 재검토 후 해당 후보 상태를 complete 또는 사유가 있는 partial로 갱신한다. 전역 stale는 후보의 complete로 덮을 수 없다. 전체 진행 표시는 어느 후보든 stale이면 stale이며, 평가와 최종 검증은 각 후보와 전역 상태를 함께 본다. 선택하지 않은 후보의 국소 변경은 선택 후보의 최종 내보내기를 막지 않는다. 기존 전역 상태만 있는 세션도 읽는다.
 
 검색 이력은 `request_count/admitted_count/reused_count`로 요청·새 채택·재사용을 구분한다. 호스트 검색 예약은 요청 1회를 보수적으로 소비하며 취소·실패도 되돌리지 않는다. 동일 record-search 응답 재기록은 사용량을 늘리지 않는다. `search-review`는 완료된 검색에 `review`를 저장하며 action, reason, unresolved_questions, relevant_paper_ids를 검증한다. 리뷰 수정은 채택·요청 예산에 영향을 주지 않는다.
+
+진행 집계의 우선순위는 stale > in_progress > pending > partial > complete다. 후보의 단계와 전역 공통 단계 중 더 미완료인 상태를 사용하며, 전체 표시는 모든 후보를 함께 집계한다. 관련 검토 단계가 partial인 후보는 사유가 있어 최종 제안으로 기록할 수 있어도 실행 준비 평가는 conditional이다. pending/in_progress도 passed로 표시하지 않는다. 전역만 있는 기존 세션에도 같은 규칙을 적용한다. 선택하지 않은 후보만 미완료이면 전체 표시에는 남지만 해당 상태로 다른 선택 후보의 최종화를 막지 않는다.

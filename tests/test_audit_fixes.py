@@ -76,3 +76,36 @@ class ResourceValidationTests(unittest.TestCase):
                 s['candidates'][0]['resource_plan'] = {'status': 'pending', 'reason': 'TEST evaluation timing unknown', 'measurement_plan': 'TEST time independent patient evaluation'}
             self.assertEqual(validate(s, final=True), [])
             self.assertIn('## TEST-C1:', markdown(s))
+
+
+class StageProgressTests(unittest.TestCase):
+    def test_global_and_local_status_matrix(self):
+        from researchlib.evaluation import rank
+        from researchlib.state import candidate_stages, progress_stages
+        priority = {'complete': 0, 'partial': 1, 'pending': 2, 'in_progress': 3, 'stale': 4}
+        for global_status in priority:
+            for local_status in priority:
+                with self.subTest(global_status=global_status, local_status=local_status):
+                    s = complete(); c = s['candidates'][0]
+                    s['stages']['novelty'] = global_status
+                    c['stages'] = {'novelty': local_status}
+                    s['report']['stage_notes'] = {'novelty': 'TEST explicit remaining work'}
+                    c['stage_notes'] = {'novelty': 'TEST candidate scope'}
+                    expected = max((global_status, local_status), key=priority.get)
+                    self.assertEqual(candidate_stages(s, c)['novelty'], expected)
+                    self.assertEqual(progress_stages(s)['novelty'], expected)
+                    self.assertEqual(rank(s)[0]['status'], 'passed' if expected == 'complete' else 'conditional')
+                    self.assertEqual(bool(validate(s, final=True)), expected not in ('complete', 'partial'))
+
+    def test_unselected_work_does_not_block_selected_final(self):
+        from researchlib.evaluation import rank
+        from researchlib.state import progress_stages
+        s = complete(); other = copy.deepcopy(s['candidates'][0]); other['id'] = 'TEST-C2'
+        other['stages'] = {'novelty': 'in_progress'}; s['candidates'].append(other)
+        self.assertEqual(progress_stages(s)['novelty'], 'in_progress')
+        self.assertEqual({r['id']: r['status'] for r in rank(s)}, {'TEST-C1': 'passed', 'TEST-C2': 'conditional'})
+        self.assertEqual(validate(s, final=True), [])
+        s['candidates'][0]['stages'] = {'novelty': 'partial'}
+        self.assertTrue(validate(s, final=True))
+        s['candidates'][0]['stage_notes'] = {'novelty': 'TEST declared limits'}
+        self.assertEqual(validate(s, final=True), [])

@@ -9,6 +9,7 @@ from pathlib import Path
 CRITERIA = ("novelty", "importance", "relevance", "feasibility", "evaluation", "reproducibility", "venue_fit")
 GATES = ("data", "resources", "falsifiable", "baseline", "ethics_rights")
 STAGES = ("search", "analysis", "gaps", "candidates", "novelty", "evaluation", "plan", "journals")
+STAGE_PRIORITY = dict(zip(("complete", "partial", "pending", "in_progress", "stale"), range(5)))
 PROFILE = ("field", "population", "purpose", "duration", "team", "experience", "compute", "budget", "data", "data_restrictions", "contribution", "language", "index_target", "open_access", "apc_budget", "deadline", "read_papers", "excluded_topics", "preferred_journals", "preferred_venues", "resource_budget", "timezone")
 
 
@@ -90,18 +91,16 @@ def invalidate(state, stage, reason, candidate_ids=None):
 
 
 def candidate_stages(state, candidate):
-    # A local completion cannot erase a global invalidation.
     local = candidate.get("stages", {})
-    return {name: "stale" if state["stages"].get(name) == "stale" else local.get(name, state["stages"].get(name, "pending"))
+    return {name: max((state["stages"].get(name, "pending"), local.get(name, "complete")), key=STAGE_PRIORITY.__getitem__)
             for name in STAGES}
 
 
 def progress_stages(state):
-    progress = dict(state["stages"])
+    progress = {name: state["stages"].get(name, "pending") for name in STAGES}
     for candidate in state["candidates"]:
         for name, status in candidate_stages(state, candidate).items():
-            if status == "stale":
-                progress[name] = "stale"
+            progress[name] = max((progress[name], status), key=STAGE_PRIORITY.__getitem__)
     return progress
 
 

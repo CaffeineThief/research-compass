@@ -100,9 +100,9 @@ def record_review(state, candidate_id, review):
 
 def evaluate(candidate, state):
     reasons, conditional, failed = [], False, False
-    if any(candidate_stages(state, candidate).get(s) == "stale" for s in ("search", "analysis", "gaps", "candidates", "novelty", "evaluation")):
+    if any(candidate_stages(state, candidate).get(s) != "complete" for s in ("search", "analysis", "gaps", "candidates", "novelty", "evaluation")):
         conditional = True
-        reasons.append("관련 단계 변경 후 재검토 필요")
+        reasons.append("관련 단계 미완료·부분 완료 또는 변경 후 재검토 필요")
     for name in GATES:
         gate = candidate.get("gates", {}).get(name, {})
         status = gate.get("status", "unknown")
