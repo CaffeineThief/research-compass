@@ -9,7 +9,7 @@ from pathlib import Path
 CRITERIA = ("novelty", "importance", "relevance", "feasibility", "evaluation", "reproducibility", "venue_fit")
 GATES = ("data", "resources", "falsifiable", "baseline", "ethics_rights")
 STAGES = ("search", "analysis", "gaps", "candidates", "novelty", "evaluation", "plan", "journals")
-PROFILE = ("field", "population", "purpose", "duration", "team", "experience", "compute", "budget", "data", "data_restrictions", "contribution", "language", "index_target", "open_access", "apc_budget", "deadline", "read_papers", "excluded_topics", "preferred_journals", "preferred_venues", "resource_budget")
+PROFILE = ("field", "population", "purpose", "duration", "team", "experience", "compute", "budget", "data", "data_restrictions", "contribution", "language", "index_target", "open_access", "apc_budget", "deadline", "read_papers", "excluded_topics", "preferred_journals", "preferred_venues", "resource_budget", "timezone")
 
 
 def now():
@@ -108,6 +108,9 @@ def progress_stages(state):
 def update_profile(state, patch):
     if not isinstance(patch, dict) or set(patch) - set(PROFILE):
         raise ValueError("알 수 없는 사용자 조건입니다.")
+    if patch.get("timezone") is not None:
+        from .journals import zone
+        zone(patch["timezone"])
     if "resource_budget" in patch:
         from .planning import resource_budget
         resource_budget(patch)

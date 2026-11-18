@@ -58,7 +58,7 @@ def parser():
         if name == "checklist":
             cmd.add_argument("--candidate", required=True)
         if name == "journal-recheck":
-            cmd.add_argument("--as-of", help="YYYY-MM-DD; 기본값 오늘")
+            cmd.add_argument("--as-of", help="YYYY-MM-DD 또는 UTC offset을 포함한 ISO 시각; 기본값 현재")
             cmd.add_argument("--max-age-days", type=int, default=90)
     return p
 
@@ -169,6 +169,6 @@ def main():
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (ValueError, OSError, KeyError, TypeError) as exc:
+    except (ValueError, OSError, KeyError, TypeError, OverflowError) as exc:
         print(f"오류: {exc}", file=sys.stderr)
         sys.exit(2)

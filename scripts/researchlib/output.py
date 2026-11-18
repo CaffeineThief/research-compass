@@ -4,7 +4,7 @@ import json
 from datetime import date
 
 from .evaluation import rank, gap_errors, review_errors, selected_candidates
-from .journals import verified_field, recheck_journals, venue_fields
+from .journals import verified_field, recheck_journals, venue_fields, schedule_check, submission_plan, zone
 from .literature import validate_claims, validate_paper, evidence_errors, evidence_version, valid_id_list
 from .planning import planning_errors, pilot_estimate, resource_budget, resource_check
 from .budget import search_coverage
@@ -79,6 +79,7 @@ def validate(state, final=False):
     try:
         validate_config(state["config"])
         resource_budget(state["profile"])
+        zone(state["profile"].get("timezone") or "UTC")
     except (ValueError, KeyError, TypeError, AttributeError) as exc:
         errors.append(str(exc))
     for key, ceiling in (("requests", "max_requests"), ("results", "max_results"), ("agent_calls", "max_agent_calls")):
@@ -117,10 +118,18 @@ def validate(state, final=False):
         if set(candidate.get("gap_ids", [])) - gap_ids:
             errors.append(f"candidate {candidate['id']}.gap_ids: 없는 연구 공백 참조")
         errors.extend(f"candidate {candidate['id']}: {e}" for e in planning_errors(candidate))
+        try:
+            submission_plan(candidate)
+        except (ValueError, OverflowError) as exc:
+            errors.append(f"candidate {candidate['id']}: {exc}")
     candidate_ids = {c["id"] for c in state["candidates"]}
     for journal in state["journals"]:
         if journal.get("candidate_id") not in candidate_ids:
             errors.append(f"journal {journal.get('id')}: 후보 참조 필요")
+        try:
+            schedule_check(state, journal, report.get("as_of"))
+        except (ValueError, OverflowError) as exc:
+            errors.append(f"venue {journal['id']}: {exc}")
         for key in venue_fields(journal):
             try:
                 verified_field(journal, key)
@@ -334,6 +343,10 @@ def markdown(state):
     lines += ["", "## 투고처 재확인", "", "기본 90일 기준의 확인일 점검입니다. 최신 사실을 자동 조회한 결과가 아닙니다.", ""]
     for journal in recheck_journals(state, state.get("report", {}).get("as_of")):
         lines.append(f"- {journal['name']} (기준일 {journal['as_of']}): " + "; ".join(f"{key}={value['status']}" for key, value in journal['fields'].items()))
+        submission = journal["submission"]
+        lines += [f"  - 투고 일정: {submission['status']} / 준비 예정: {submission['ready_at'] or '미정'} / {submission['reason']}"]
+        for deadline in submission["deadlines"]:
+            lines.append(f"  - {deadline['id']} ({deadline['kind']}): {deadline['at']} [{deadline['timezone']}] / {deadline['timing']} / {deadline['readiness']}")
     if final_errors:
         lines += ["", "## 최종화 전 확인 과제", ""] + [f"- {error}" for error in final_errors]
     lines += ["", "검색 범위 밖의 노벨티, 게재 가능성 및 색인을 보증하지 않습니다.", ""]

@@ -109,7 +109,7 @@ python3 "$SCRIPT" coverage ./research-run/state.json
 python3 "$SCRIPT" journal-recheck ./research-run/state.json --as-of 2026-11-12 --max-age-days 90
 ```
 
-위 날짜는 사용 예시이며 실행 시 실제 추천 기준일로 대체한다. 기준일 생략 시 실행 환경의 오늘을 사용한다. 저널은 index/cost/guidelines/schedule/metrics를, 학술대회는 guidelines/schedule/cost를 검사하고 결과를 current/stale/unverified/future_date로 출력한다. 기본 90일은 재열람 우선순위를 정하는 작업 기준이며 사실의 유효기간이 아니다. 최신 정보 요청이나 실제 투고 전에는 current여도 공식 페이지를 다시 확인한다. 이 명령 자체는 웹 조회나 verified 날짜 갱신을 하지 않는다.
+위 날짜는 사용 예시이며 실행 시 실제 추천 기준일로 대체한다. 기준일은 offset 포함 ISO 시각도 허용한다. 생략 시 현재 시각을 profile.timezone(미지정 UTC)으로 해석한다. 저널은 index/cost/guidelines/schedule/metrics를, 학술대회는 guidelines/schedule/cost를 검사하고 결과를 current/stale/unverified/future_date로 출력한다. 기본 90일은 재열람 우선순위를 정하는 작업 기준이며 사실의 유효기간이 아니다. 최신 정보 요청이나 실제 투고 전에는 current여도 공식 페이지를 다시 확인한다. 이 명령 자체는 웹 조회나 verified 날짜 갱신을 하지 않는다. 구조화한 마감·선행 제출·실험 완료와 원고 준비 기간의 대조는 [투고처 일정 형식](journals.md)을 따른다.
 
 ## 7. 첫 주 체크리스트와 최종화
 
