@@ -68,8 +68,11 @@ python3 "$SCRIPT" export ./research-run/state.json --format all
 
 ## 후보
 
-id, title, paper_ids(활성 문헌), conflict_ids, gates, scores, novelty, plan.
+id, title, paper_ids(활성 문헌), gap_ids(연구 공백 ID 배열), conflict_ids, gates, scores, novelty, plan.
 
+- `gap_ids`는 중복 없는 공백 ID 배열이다. `gaps[].claim_ids`를 통해 주장과 실제 열람한 문헌 버전·위치에 연결한다. 공백의 `claim_ids`도 비어 있지 않은 고유 ID 배열이어야 한다. 연결된 모든 공백과 주장의 근거를 검사한다. 잘못된 ID·형식은 일반 검증에서도 오류다.
+- 연결 미완료 후보에는 `gap_review={"reason":"실제 근거 부족 사유","next_actions":["다음 확인 작업"]}`를 기록한다. 기존 세션에서 `gap_ids`가 없거나 빈 배열이면 초안으로 읽고 `conditional`로 평가하며, 누락된 검토 기록도 보고서에 표시한다. 연결 정보는 호스트가 원문 확인 후 추가한다.
+- 최종 선택 후보는 유효한 `gap_ids → claim_ids → evidence` 연결이 필요하다. 연결 부족 후보는 보완 과제를 포함한 초안으로 제공하고, 최종 추천 수에 포함하기 전 연결을 보완한다. 추천 후보가 없을 때는 `report.selected_candidate_ids=[]`, `no_candidate_reason`, `next_actions`로 결과를 기록할 수 있다.
 - gates 키: data, resources, falsifiable, baseline, ethics_rights. 각 값은 `{"status":"unknown","reason":"확인 과제","evidence":null}`로 시작한다. pass에는 reason과 유효 source가 필요하다.
 - scores 키: novelty, importance, relevance, feasibility, evaluation, reproducibility, venue_fit. 각 값은 `{"value":null,"reason":"미확인","uncertainty":"남은 불확실성","evidence":null}`. 값 범위 0~5; 근거가 충분하면 source를 기록한다.
 - novelty: contribution, status, search_ids, closest_paper_ids, comparison(문제·방법·가정·데이터·평가·기여 6축), uncertainty. `search_ids`는 별도의 성공한 branch=novelty 검색을 참조한다. status는 pending / distinct_within_scope / duplicate. 실패 검색만으로 검증 완료 불가.

@@ -29,7 +29,7 @@ description: 관심 분야의 학술 문헌을 확인해 근거가 연결된 연
 
 1. **입력·검색·전문 확보:** [search-and-access.md](references/search-and-access.md). 최근/기반/검증 연구를 분리하고 검색 범위와 제외 기준을 기록한다.
 2. **문헌 분석·공백:** [analysis.md](references/analysis.md). 위치가 있는 주장, 3종 한계, 충돌 결과, 가치 있는 공백을 만든다.
-3. **독립 후보 생성·반박·실행 평가:** [candidates.md](references/candidates.md). 역할별 독립 검토 후 교차 검토하고, 후보별 별도 노벨티 검색을 한다.
+3. **독립 후보 생성·반박·실행 평가:** [candidates.md](references/candidates.md). 역할별 독립 검토 후 교차 검토하고, 후보별 별도 노벨티 검색을 한다. 후보의 gap_ids를 통해 연구 공백·주장·실제 열람 문헌의 근거를 연결한다.
 4. **연구 계획·최종 결과:** [output.md](references/output.md)와 [workflow.md](references/workflow.md). 근거가 충분한 2~5개를 목표로 하되 0~1개도 허용하고 부족 사유와 다음 확인을 명시한다.
 5. **예비/상세 투고 전략:** [journals.md](references/journals.md). 실제 저널·학술대회명과 주제 적합성을 먼저 비교한다. 학술대회는 회차·트랙을 구분하고, SCIE·KCI는 저널의 색인 정보로 기록한다. 연구 설계·원고 확인 후 추천을 갱신한다.
 

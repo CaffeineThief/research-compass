@@ -1,9 +1,40 @@
 import math
-from .literature import source_ok, evidence_errors
+from .literature import source_ok, evidence_errors, valid_id_list, validate_claims
 from .state import CRITERIA, GATES
 from .planning import readiness_reasons
 
 AXES = dict(zip(("problem", "method", "assumptions", "data", "evaluation", "contribution"), ("문제", "방법", "가정", "데이터", "평가", "기여")))
+
+
+def gap_errors(candidate, state):
+    gap_ids = candidate.get("gap_ids", [])
+    if not valid_id_list(gap_ids) or not gap_ids:
+        return ["gap_ids: 후보에서 근거가 연결된 연구 공백을 지정해야 함"]
+    gaps = {gap["id"]: gap for gap in state["gaps"]}
+    claims = {claim["id"]: claim for claim in state["claims"]}
+    errors = []
+    for gid in gap_ids:
+        gap = gaps.get(gid)
+        if gap is None:
+            errors.append(f"gap_ids: 없는 연구 공백 {gid}")
+            continue
+        claim_ids = gap.get("claim_ids")
+        if not valid_id_list(claim_ids) or not claim_ids:
+            errors.append(f"gap {gid}: 근거 주장 ID 배열 필요")
+            continue
+        for cid in claim_ids:
+            claim = claims.get(cid)
+            if claim is None:
+                errors.append(f"gap {gid}: 없는 근거 주장 {cid}")
+                continue
+            refs = claim.get("evidence")
+            if not isinstance(refs, list) or not refs or any(not isinstance(ref, dict) for ref in refs):
+                errors.append(f"gap {gid} / claim {cid}: 문헌 근거 배열 필요")
+                continue
+            errors.extend(validate_claims({"papers": state["papers"], "claims": [claim], "conflicts": []}))
+            for ref in refs:
+                errors.extend(f"gap {gid} / claim {cid}: {issue}" for issue in evidence_errors(ref, state))
+    return errors
 
 
 def novelty_errors(candidate, state):
@@ -66,6 +97,12 @@ def evaluate(candidate, state):
     if readiness:
         conditional = True
         reasons.extend(readiness)
+    missing_links = gap_errors(candidate, state)
+    if missing_links:
+        conditional = True
+        reasons.extend(missing_links)
+        if not candidate.get("gap_review"):
+            reasons.append("gap_review: 근거 부족 사유와 다음 확인 작업을 기록해야 함")
     papers = {p["id"] for p in state["papers"] if not p.get("excluded")}
     closest = novelty.get("closest_paper_ids", [])
     if not closest or set(closest) - papers:

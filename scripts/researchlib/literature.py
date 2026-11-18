@@ -5,6 +5,12 @@ from urllib.parse import urlparse
 ACCESS = ("unavailable", "abstract_only", "partial", "full_text")
 
 
+def valid_id_list(value):
+    return (isinstance(value, list)
+            and all(isinstance(item, str) and item.strip() for item in value)
+            and len(value) == len(set(value)))
+
+
 def doi_key(value):
     return re.sub(r"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", value.strip(), flags=re.I).lower()
 
