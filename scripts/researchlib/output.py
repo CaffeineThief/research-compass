@@ -10,12 +10,18 @@ from .planning import planning_errors, pilot_estimate, resource_budget, resource
 from .budget import search_coverage
 from .state import validate_config
 
+RESEARCH_FLOW_FIELDS = {
+    "problem": "문제 정의", "prior_work": "기존 연구의 해결 범위", "research_gap": "남은 연구 공백",
+    "objective": "연구 목적", "question": "한 문장 연구 질문", "hypothesis": "검증 가능한 가설",
+    "minimum_experiment": "최소 검증 실험", "expected_contribution": "기대 기여"
+}
+
 PLAN_FIELDS = {
-    "question": "한 문장 연구 질문", "hypothesis": "검증 가능한 가설", "importance": "연구의 중요성",
+    **RESEARCH_FLOW_FIELDS, "importance": "연구의 중요성",
     "difference": "가장 가까운 선행 연구와 차별성", "reading_order": "핵심 선행 연구와 읽는 순서",
     "reading_sections": "확인할 절·방법·실험", "prerequisites": "개념과 사전 지식", "data_plan": "데이터 확보 계획",
     "method": "방법론과 구현 단계", "evaluation_plan": "비교 기준·지표·통제 조건",
-    "robustness": "제거 실험·민감도·통계 검증", "minimum_experiment": "최소 검증 실험",
+    "robustness": "제거 실험·민감도·통계 검증",
     "decision_rules": "성공·수정·중단 기준", "schedule": "단계별 일정과 산출물",
     "resources_risks": "자원과 주요 위험", "fallback": "실패 시 대체 접근", "venues": "예비 투고처와 근거",
     "negative_result_value": "예상과 다른 결과에서 얻을 지식"
@@ -208,6 +214,8 @@ def markdown(state):
     for r in selected:
         c = by_id[r["id"]]
         lines += ["", f"## {c['id']}: {c['title']} ({r['status']})", ""]
+        for key, title in RESEARCH_FLOW_FIELDS.items():
+            lines += [f"### {title}", "", str(c.get("plan", {}).get(key) or "미정 — 추가 확인 필요"), ""]
         lines += ["### 연구 공백과 문헌 근거 연결", ""]
         missing_links = gap_errors(c, state)
         gaps = {gap["id"]: gap for gap in state["gaps"]}
@@ -228,6 +236,8 @@ def markdown(state):
         lines.extend(f"- 필수 조건 {key}: {value}" for key, value in c.get("gates", {}).items())
         lines.extend(f"- 점수 {key}: {value}" for key, value in c.get("scores", {}).items())
         for key, title in PLAN_FIELDS.items():
+            if key in RESEARCH_FLOW_FIELDS:
+                continue
             lines += [f"### {title}", "", str(c.get("plan", {}).get(key) or "미정 — 추가 확인 필요"), ""]
         lines += ["### 후보별 중복 검증", "", str(c.get("novelty", {})), ""]
         for key in ("design", "provenance"):

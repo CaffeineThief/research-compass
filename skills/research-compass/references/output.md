@@ -6,26 +6,33 @@
 
 각 후보의 앞부분에는 `gap_ids → claim_ids → 문헌 ID·버전·열람 위치`를 표시한다. 근거 연결이 부족하면 `gap_review`의 사유와 다음 확인 작업을 보여 준다.
 
-각 후보는 제목과 다음 18개 정보를 제공한다. `plan`의 키와 대응한다.
+각 후보는 다음 23개 계획 필드를 작성한다. 앞의 8개는 연구의 논리 흐름이며 후보 설명 맨 앞에 같은 순서로 표시한다.
 
-1. question: 한 문장 연구 질문
-2. hypothesis: 반증 가능한 가설
-3. importance: 중요성
-4. difference: 가장 가까운 선행 연구와 차별성
-5. reading_order: 핵심 문헌과 읽는 순서(실제 문헌 ID/링크)
-6. reading_sections: 각 문헌에서 읽을 절·방법·실험
-7. prerequisites: 개념과 사전 지식
-8. data_plan: 데이터 확보·권한·대안
-9. method: 방법론과 구현 단계
-10. evaluation_plan: 비교 기준·평가 지표·통제 조건
-11. robustness: 필요한 제거 실험·민감도·통계 검증(해당 없으면 이유)
-12. minimum_experiment: 가장 작은 가설 검증 실험
-13. decision_rules: 성공·수정·중단의 관측 가능한 기준
-14. schedule: 단계별 일정과 산출물(기간 미정이면 상대적 단계와 추정임을 명시)
-15. resources_risks: 예상 연산·인력·비용·위험(추정과 사용자 사실 구분)
-16. fallback: 실패 시 대체 접근
-17. venues: 공식 저널·학술대회명, 해당 회차·트랙, 확인된 적합성 근거
-18. negative_result_value: 기대와 다른 결과로도 얻는 지식
+1. problem: 문제 정의
+2. prior_work: 기존 연구의 해결 범위
+3. research_gap: 남은 연구 공백
+4. objective: 연구 목적
+5. question: 한 문장 연구 질문
+6. hypothesis: 검증 가능한 가설
+7. minimum_experiment: 최소 검증 실험
+8. expected_contribution: 기대 기여
+9. importance: 연구의 중요성
+10. difference: 가장 가까운 선행 연구와 차별성
+11. reading_order: 핵심 선행 연구와 읽는 순서
+12. reading_sections: 확인할 절·방법·실험
+13. prerequisites: 개념과 사전 지식
+14. data_plan: 데이터 확보 계획
+15. method: 방법론과 구현 단계
+16. evaluation_plan: 비교 기준·지표·통제 조건
+17. robustness: 제거 실험·민감도·통계 검증
+18. decision_rules: 성공·수정·중단 기준
+19. schedule: 단계별 일정과 산출물
+20. resources_risks: 자원과 주요 위험
+21. fallback: 실패 시 대체 접근
+22. venues: 예비 투고처와 근거
+23. negative_result_value: 예상과 다른 결과에서 얻을 지식
+
+문제와 기존 해결 범위는 gap_ids로 연결된 문헌의 확인 범위에 근거한다. 연구 목적은 이 공백에서 무엇을 밝힐지 설명하고, 연구 질문의 비교 대상·조건·관측 결과가 가설과 minimum_experiment에서 어떻게 검증되는지 구체화한다. expected_contribution은 예상되는 지식·방법·자료의 기여와 적용 범위를 적으며, 미검증 결과를 확정하지 않는다. 기존 18개 필드 초안은 읽고 추가 5개 필드의 누락을 표시한다. 최종 선택 후보에는 23개 필드가 필요하다.
 
 비교표에 상태·평가기준별 근거·불확실성·가중치·종합점수를 제공하고 탈락 후보 이유를 남긴다. 계획에 빠진 정보가 있으면 완성된 계획이라고 하지 않는다. `export`는 저장된 값을 Markdown/BibTeX/RIS로 변환할 뿐 연구 내용이나 누락 정보를 자동 생성하지 않는다.
 

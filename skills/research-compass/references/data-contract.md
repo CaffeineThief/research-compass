@@ -76,7 +76,7 @@ id, title, paper_ids(활성 문헌), gap_ids(연구 공백 ID 배열), conflict_
 - gates 키: data, resources, falsifiable, baseline, ethics_rights. 각 값은 `{"status":"unknown","reason":"확인 과제","evidence":null}`로 시작한다. pass에는 reason과 유효 source가 필요하다.
 - scores 키: novelty, importance, relevance, feasibility, evaluation, reproducibility, venue_fit. 각 값은 `{"value":null,"reason":"미확인","uncertainty":"남은 불확실성","evidence":null}`. 값 범위 0~5; 근거가 충분하면 source를 기록한다.
 - novelty: contribution, status, search_ids, closest_paper_ids, comparison(문제·방법·가정·데이터·평가·기여 6축), uncertainty. `search_ids`는 별도의 성공한 branch=novelty 검색을 참조한다. status는 pending / distinct_within_scope / duplicate. 실패 검색만으로 검증 완료 불가.
-- plan은 [output.md](output.md)의 18개 키. 문자열로 쓰고 근거 문헌 ID/URL을 포함한다.
+- plan은 [output.md](output.md)의 23개 키. 문자열로 쓰고 근거 문헌 ID/URL을 포함한다.
 - `resource_plan`은 예상 연구 작업시간과 근거 또는 미산정 사유·측정 계획을 기록한다. 가용 시간은 `profile.resource_budget`에 관리한다. 조건별 파일럿 집계·실행 수 대조·입력 형식은 [실행 절차](workflow.md)의 2절을 따른다.
 
 ## 투고처
