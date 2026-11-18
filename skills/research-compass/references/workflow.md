@@ -32,12 +32,15 @@
 | steps_per_run, runs | 계획한 실행당 스텝·전체 실행 횟수(조건과 seed 포함) |
 | peak_memory_gib, available_memory_gib | 같은 장비에서 측정한 최대 사용량·실제 가용량 |
 | overhead_fraction | 준비·평가 등 추가 시간 가정. 0.2는 20%; 근거는 assumptions에 명시 |
+| evaluation_hours, setup_hours | 해당 조건의 전체 반복에 추가할 평가·준비 시간. 생략 시 0이며 포함 범위를 assumptions에 명시 |
 | assumptions | 측정 범위, 워밍업/입출력 포함 여부, 처리량 변동과 추정 한계 |
 | source | 실측 로그 파일/URL·위치·확인일 |
 
-예상 시간 = elapsed_seconds / measured_steps × steps_per_run × runs × (1 + overhead_fraction) / 3600.
+예상 시간 = elapsed_seconds / measured_steps × steps_per_run × runs × (1 + overhead_fraction) / 3600 + evaluation_hours + setup_hours.
 
-같은 측정 조건에서의 외삽이다. 다른 모델·해상도·장비로 환산하지 않는다. 조건별 비용이 다르면 대표 측정의 보수적 범위를 명시하거나 별도 후보/측정 기록으로 계산하고 계획에 합산 근거를 남긴다. 학습 이외의 시간과 GPU 점유 가능 시간을 구분한다. 최대 메모리 초과는 조건부 판정이다.
+같은 측정 조건에서 외삽한다. overhead_fraction에 이미 포함한 평가·준비 시간을 evaluation_hours/setup_hours에 중복 가산하지 않으며, 포함 범위를 assumptions에 쓴다. 비용이 다른 비교 조건은 `pilot={"status":"measured","conditions":[조건별 측정 객체]}`로 기록한다. 각 조건에는 고유 id와 status=measured 및 위 측정 필드가 필요하다. 조건별 예상 시간을 합산하며, 메모리는 모든 조건을 검사한다.
+
+기존 단일 측정 형식도 사용할 수 있다. 이 경우 runs는 모든 조건과 반복을 합친 전체 실행 수이며, 같은 측정 비용을 적용할 수 있다는 근거를 assumptions에 적는다. `design.conditions`는 비교 조건 수, `design.repeated_runs`는 조건당 반복 수다. 전체 실행 수는 두 수의 곱과 일치해야 하며, 조건별 측정을 제공하면 각 조건의 반복 수까지 일치해야 한다.
 
 ```sh
 python3 "$SCRIPT" record-pilot ./research-run/state.json C1 ./pilot.json
@@ -45,6 +48,27 @@ python3 "$SCRIPT" pilot-estimate ./research-run/state.json C1
 ```
 
 record-pilot은 입력을 검증한 뒤 저장하고 evaluation 이후를 stale로 바꾼다. 측정치와 계획을 다시 검토해야 완료 상태로 되돌릴 수 있다. 연구 탐색 요청만으로 데이터 다운로드나 긴 GPU 실험을 실행하지 않는다.
+
+### 기간·가용 시간과 연구 작업량
+
+`profile.resource_budget`에 사용자가 확인한 가용 시간을 기록한다. 자연어 duration 값과 구분해 관리하며, ‘2개월’ 같은 표현에서 실제 사용 가능 시간을 임의로 산정하지 않는다.
+
+- status=confirmed일 때 weeks는 양의 유한 수다. gpu_hours_per_week와 work_hours_per_week는 주당 0 이상의 유한 시간이다. source는 사용자 답변 또는 일정 확인 기록의 공통 출처 형식이다.
+- 주당 값이 누락되거나 null이면 그 가용량은 미확인이다. status=pending일 때 reason과 measurement_plan을 기록한다. 기존 세션에 resource_budget이 없으면 가용 시간을 확인할 과제로 표시한다.
+- 가용 GPU 시간 = weeks × gpu_hours_per_week. 가용 연구 작업시간 = weeks × work_hours_per_week.
+
+후보의 `resource_plan`에는 사람이 수행하는 전체 연구 작업량을 기록한다. `status=estimated`, `work_hours`, `assumptions`, `source`가 필요하다. 작업량을 아직 산정하지 못했으면 `status=pending`, `reason`, `measurement_plan`으로 기록한다.
+
+GPU 실험이 없는 연구는 pilot에 status=not_applicable과 사유를 적고, resource_plan의 작업시간을 연구 작업시간 예산과 대조한다. 설계나 데이터 자원이 해당하지 않는 경우도 해당 기록에 실제 사유를 적는다. GPU 실험이 있는 연구에서도 문헌 검토·구현·분석·원고 작성 등 사람이 수행할 작업시간을 산정한다.
+
+예산은 같은 GPU 자원에서 순차 실행하는 실험의 점유 시간과 확인한 연구 작업시간을 각각 비교한다. 병렬 장비나 다른 하드웨어에 대한 처리량 환산은 실제 측정·자원 할당에 근거해야 한다. 각 예산에 들어가더라도 실제 선후 관계와 달력 일정은 schedule에서 확인한다.
+
+```sh
+python3 "$SCRIPT" profile ./research-run/state.json ./profile.json
+python3 "$SCRIPT" pilot-estimate ./research-run/state.json C1
+```
+
+pilot-estimate와 record-pilot은 측정 기반 예상치와 resource_check를 반환한다. 보고서는 작업량의 가정·출처와 가용 시간 대조를 출력한다. 시간·메모리 초과, 미측정, 가용 시간 미확인, 실행 수 불일치와 준비 기록 누락은 conditional 판정에 반영한다. 명시한 기록의 형식 오류는 validate에서 보고한다. 초안은 새 기록의 누락을 표시하면서 읽을 수 있고, 최종 선택 후보에는 resource_plan의 예상 또는 미산정 사유·측정 계획이 필요하다.
 
 ## 3. 데이터·체크포인트 이력
 
@@ -61,7 +85,7 @@ record-pilot은 입력을 검증한 뒤 저장하고 evaluation 이후를 stale�
 
 ## 4. 연구 설계
 
-후보의 `design`에 primary_comparison(핵심 비교), primary_outcome(주요 지표), independent_unit(독립 표본 단위), controls(통제 조건), repeated_runs(양의 정수), uncertainty(불확실성 추정), matched_budget(steps/gpu_time/other), budget_rationale(비교 예산의 근거)를 쓴다.
+후보의 `design`에 primary_comparison(핵심 비교), primary_outcome(주요 지표), independent_unit(독립 표본 단위), controls(통제 조건), repeated_runs(양의 정수), uncertainty(불확실성 추정), matched_budget(steps/gpu_time/other), conditions(실측 GPU 실험의 비교 조건 수), budget_rationale(비교 예산의 근거)를 쓴다.
 
 동일 스텝과 동일 GPU시간을 동시에 맞췄다고 가정하지 않는다. 선택한 예산에 따른 해석과 다른 비용의 실측 보고 방법을 설명한다. 환자 단위 분할과 영상 단위 평가처럼 단위가 다르면 상관을 처리할 방법을 명시한다. 실험 설계가 해당하지 않는 경우 `status=not_applicable`과 reason을 기록한다.
 

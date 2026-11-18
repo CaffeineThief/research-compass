@@ -32,6 +32,10 @@ def paper(pid="TEST-P1", access="full_text", test_data=True):
 
 def candidate():
     return {"id": "TEST-C1", "title": "TEST ONLY — Candidate", "paper_ids": ["TEST-P1"], "gap_ids": ["TEST-G1"],
+            "pilot": {"status": "not_applicable", "reason": "TEST conceptual study without GPU experiments"},
+            "design": {"status": "not_applicable", "reason": "TEST conceptual study"},
+            "provenance": {"status": "not_applicable", "reason": "TEST no datasets or checkpoints"},
+            "resource_plan": {"status": "estimated", "work_hours": 6, "assumptions": "TEST reading and writing effort", "source": source()},
             "gates": {k: {"status": "pass", "reason": "Fixture confirmation", "evidence": source()} for k in GATES},
             "scores": {k: {"value": 5, "reason": "Fixture reasoning", "uncertainty": "Fixture uncertainty", "evidence": source()} for k in CRITERIA},
             "novelty": {"status": "distinct_within_scope", "search_ids": ["TEST-S1"], "closest_paper_ids": ["TEST-P1"],
@@ -41,6 +45,8 @@ def candidate():
 def state():
     s = new_state("TEST ONLY — research", True)
     s["papers"] = [paper()]
+    s["profile"]["resource_budget"] = {"status": "confirmed", "weeks": 8, "gpu_hours_per_week": 20,
+                                       "work_hours_per_week": 10, "source": source()}
     s["claims"] = [{"id": "TEST-CL1", "kind": "interpretation", "text": "Synthetic claim",
                     "interpretation": "Synthetic interpretation", "uncertainty": "TEST ONLY",
                     "evidence": [{"paper_id": "TEST-P1", "version": "preprint", "scope": "full_text",

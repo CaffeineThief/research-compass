@@ -6,7 +6,7 @@ from datetime import date
 from .evaluation import rank, gap_errors
 from .journals import verified_field, recheck_journals, venue_fields
 from .literature import validate_claims, validate_paper, evidence_errors, evidence_version, valid_id_list
-from .planning import planning_errors, pilot_estimate
+from .planning import planning_errors, pilot_estimate, resource_budget, resource_check
 from .budget import search_coverage
 from .state import validate_config
 
@@ -67,6 +67,7 @@ def validate(state, final=False):
         return errors
     try:
         validate_config(state["config"])
+        resource_budget(state["profile"])
     except (ValueError, KeyError, TypeError, AttributeError) as exc:
         errors.append(str(exc))
     for key, ceiling in (("requests", "max_requests"), ("results", "max_results"), ("agent_calls", "max_agent_calls")):
@@ -236,6 +237,8 @@ def markdown(state):
             lines += ["```json", json.dumps({"inputs": c['pilot'], "estimate": pilot_estimate(c['pilot'])}, ensure_ascii=False, indent=2), "```", ""]
         else:
             lines += ["미측정 — 실제 GPU 측정 없이 수치를 확정하지 않습니다.", ""]
+        lines += ["### 자원과 사용 가능 시간 대조", "", "허용량은 사용자 확인 기간 × 주당 가용 시간으로 계산합니다.", "",
+                  "```json", json.dumps({"resource_plan": c.get("resource_plan"), "comparison": resource_check(c, state)}, ensure_ascii=False, indent=2), "```", ""]
     lines += ["", "## 투고처", "", "| 연구 후보 | 저널·학술대회명 | 유형 | 회차·트랙 | 적합성 | 보강할 점 |", "|---|---|---|---|---|---|"]
     for j in state["journals"]:
         conference = j.get("category") == "conference"

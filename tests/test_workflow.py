@@ -35,7 +35,10 @@ def complete():
     c = s['candidates'][0]
     c['plan'] = dict.fromkeys(PLAN_FIELDS, 'TEST ONLY: recorded plan')
     c['pilot'] = measured()
+    c['pilot']['runs'] = 6
+    c['pilot']['assumptions'] = 'TEST same measured step cost for both conditions; six runs total'
     c['design'] = {"primary_comparison": "TEST A vs B", "primary_outcome": "TEST outcome", "independent_unit": "TEST patient", "controls": "TEST fixed split", "uncertainty": "TEST patient bootstrap", "budget_rationale": "TEST matched steps; record elapsed time separately", "matched_budget": "steps", "repeated_runs": 3}
+    c['design']['conditions'] = 2
     c['provenance'] = {"assets": [{"id": "TEST-D1", "kind": "dataset", "name": "TEST DATA", "version": "TEST v1", "source": source(), "identifier_strategy": "TEST manifest hash; no patient IDs stored here", "split": "TEST patient split", "pretraining_exposure": "TEST no other checkpoint", "rights": {"status": "verified", "reason": "TEST permission only", "source": source()}, "leakage": {"status": "passed", "reason": "TEST overlap check", "source": source()}}]}
     c['first_week'] = [{"id": f"TEST-T{i}", "category": cat, "day": i + 1, "text": "TEST ONLY task", "done": False} for i, cat in enumerate(WEEK_CATEGORIES)]
     return s

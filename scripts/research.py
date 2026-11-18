@@ -9,7 +9,7 @@ from researchlib.evaluation import rank
 from researchlib.budget import reserve_search, record_search, search_coverage
 from researchlib.literature import merge_papers
 from researchlib.output import bibliography, markdown, validate, evidence_cards
-from researchlib.planning import pilot_estimate, week_checklist
+from researchlib.planning import pilot_estimate, week_checklist, resource_check
 from researchlib.journals import recheck_journals
 from researchlib.search import run_search
 from researchlib.state import invalidate, load, new_state, reserve_agents, save, update_profile, validate_config
@@ -87,6 +87,7 @@ def main():
         if args.command == "record-pilot":
             candidate['pilot'] = pilot
             invalidate(state, 'evaluation', '파일럿 측정 갱신: ' + args.candidate_id)
+        result["resource_check"] = resource_check(candidate, state)
     elif args.command == "checklist":
         errors = validate(state)
         if errors:

@@ -93,7 +93,7 @@ def evaluate(candidate, state):
     if missing:
         conditional = True
         reasons.extend(missing)
-    readiness = readiness_reasons(candidate)
+    readiness = readiness_reasons(candidate, state)
     if readiness:
         conditional = True
         reasons.extend(readiness)
