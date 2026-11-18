@@ -1,6 +1,6 @@
 import math
 from .literature import source_ok, evidence_errors, valid_id_list, validate_claims
-from .state import CRITERIA, GATES
+from .state import CRITERIA, GATES, candidate_stages
 from .planning import readiness_reasons
 
 AXES = dict(zip(("problem", "method", "assumptions", "data", "evaluation", "contribution"), ("문제", "방법", "가정", "데이터", "평가", "기여")))
@@ -65,7 +65,7 @@ def novelty_errors(candidate, state):
 
 def evaluate(candidate, state):
     reasons, conditional, failed = [], False, False
-    if any(state["stages"].get(s) == "stale" for s in ("search", "analysis", "gaps", "candidates", "novelty", "evaluation")):
+    if any(candidate_stages(state, candidate).get(s) == "stale" for s in ("search", "analysis", "gaps", "candidates", "novelty", "evaluation")):
         conditional = True
         reasons.append("관련 단계 변경 후 재검토 필요")
     for name in GATES:

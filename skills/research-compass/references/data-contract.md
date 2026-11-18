@@ -135,3 +135,9 @@ Crossref도 남은 예산만 요청하고, 제공처의 초과 응답을 제외�
 ## 실행 준비 기록
 
 [workflow.md](workflow.md)에 근거 카드, 6축 비교, pilot, provenance, design, first_week, report, 검색 배분과 저널 재확인 명령을 정의한다. schema_version=1과 기존 데이터를 유지하는 추가 필드이며, 이전 문자열 비교는 읽을 수 있지만 조건부로 평가한다. `source=null`인 미확인 저널 필드는 정상적으로 내보낸다. 일반 validate는 초안을 허용하고 --final은 보고서 완결성을 별도로 검사한다.
+
+### 조건 변경과 후보별 재검토
+
+`profile`의 데이터·이용 제한 변경은 search부터 후속 단계를 전역 stale로 만든다. 선호 투고처만 바꾸면 evaluation부터 재검토하며 문헌·공백·노벨티 기록은 재사용한다. `record-pilot`은 해당 후보의 evaluation/plan/journals만 stale로 만든다. 직접 변경은 `invalidate <state> <stage> --reason '<이유>' --candidate <ID>`로 기록한다. `--candidate`를 생략하면 기존 전역 방식이다.
+
+후보의 선택적 `stages`와 `stage_notes`는 전역과 같은 단계명·상태를 쓴다. 재검토 후 해당 후보 상태를 complete 또는 사유가 있는 partial로 갱신한다. 전역 stale는 후보의 complete로 덮을 수 없다. 전체 진행 표시는 어느 후보든 stale이면 stale이며, 평가와 최종 검증은 각 후보와 전역 상태를 함께 본다. 선택하지 않은 후보의 국소 변경은 선택 후보의 최종 내보내기를 막지 않는다. 기존 전역 상태만 있는 세션도 읽는다.

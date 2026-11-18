@@ -8,7 +8,7 @@ from .journals import verified_field, recheck_journals, venue_fields
 from .literature import validate_claims, validate_paper, evidence_errors, evidence_version, valid_id_list
 from .planning import planning_errors, pilot_estimate, resource_budget, resource_check
 from .budget import search_coverage
-from .state import validate_config
+from .state import validate_config, candidate_stages, progress_stages, STAGES
 
 RESEARCH_FLOW_FIELDS = {
     "problem": "문제 정의", "prior_work": "기존 연구의 해결 범위", "research_gap": "남은 연구 공백",
@@ -53,6 +53,10 @@ def validate(state, final=False):
     if selection is not None and (not isinstance(selection, list) or any(not isinstance(s, str) for s in selection)):
         errors.append("report.selected_candidate_ids: 문자열 배열 필요")
     for candidate in state["candidates"]:
+        stages = candidate.get("stages", {})
+        if (not isinstance(stages, dict) or set(stages) - set(STAGES)
+                or any(value not in ("pending", "stale", "complete", "partial") for value in stages.values())):
+            errors.append(f"candidate {candidate['id']}.stages: 올바른 단계 상태 필요")
         for key in ("plan", "novelty", "gates", "scores"):
             if key in candidate and not isinstance(candidate[key], dict):
                 errors.append(f"candidate {candidate['id']}.{key}: 객체 필요")
@@ -149,6 +153,9 @@ def validate(state, final=False):
             for candidate in state["candidates"]:
                 if candidate["id"] not in selected:
                     continue
+                for stage, status in candidate_stages(state, candidate).items():
+                    if status not in ("complete", "partial") or (status == "partial" and not candidate.get("stage_notes", {}).get(stage) and not report.get("stage_notes", {}).get(stage)):
+                        errors.append(f"candidate {candidate['id']}.stage {stage}: 재검토 완료 또는 사유 있는 partial 필요")
                 errors.extend(f"candidate {candidate['id']}: {issue}" for issue in gap_errors(candidate, state))
                 if next(r for r in rank(state) if r['id'] == candidate['id'])["status"] == "rejected":
                     errors.append(f"candidate {candidate['id']}: 탈락 후보는 최종 추천 불가")
@@ -177,7 +184,7 @@ def markdown(state):
     lines += ["최종 보고서 검증: " + (f"미완료 ({len(final_errors)}개 확인 과제)" if final_errors else "통과 — 기록 완결성 확인, 연구 타당성 보증 아님"), ""]
     for key, value in state.get("report", {}).items():
         lines.append(f"- {key}: {cell(value)}")
-    lines.extend(f"- {k}: {v}" for k, v in state["stages"].items())
+    lines.extend(f"- {k}: {v}" for k, v in progress_stages(state).items())
     lines += ["", "## 사용자 조건", ""]
     lines.extend(f"- {k}: {cell(v)}" for k, v in state["profile"].items())
     lines += ["", "## 문헌 및 전문 확인 상태", "", "| ID | 문헌 | 연도 | 접근 | 버전 | 확인일 |", "|---|---|---|---|---|---|"]
@@ -214,6 +221,7 @@ def markdown(state):
     for r in selected:
         c = by_id[r["id"]]
         lines += ["", f"## {c['id']}: {c['title']} ({r['status']})", ""]
+        lines.append("후보 진행 상태: " + cell(candidate_stages(state, c)))
         for key, title in RESEARCH_FLOW_FIELDS.items():
             lines += [f"### {title}", "", str(c.get("plan", {}).get(key) or "미정 — 추가 확인 필요"), ""]
         lines += ["### 연구 공백과 문헌 근거 연결", ""]

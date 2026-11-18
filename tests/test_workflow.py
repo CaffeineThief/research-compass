@@ -281,7 +281,8 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), before)
             save(pilot, measured())
             subprocess.run(cli + ['record-pilot', str(path), 'TEST-C1', str(pilot)], capture_output=True, check=True)
-            self.assertEqual(load(path)['stages']['evaluation'], 'stale')
+            self.assertEqual(load(path)['candidates'][0]['stages']['evaluation'], 'stale')
+            self.assertEqual(load(path)['stages']['evaluation'], 'complete')
 
 
 if __name__ == '__main__':

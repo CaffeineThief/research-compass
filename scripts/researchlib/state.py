@@ -74,10 +74,35 @@ def validate_config(config):
         raise ValueError("가중치는 0 이상이며 합계가 양수여야 합니다.")
 
 
-def invalidate(state, stage, reason):
-    for name in STAGES[STAGES.index(stage):]:
-        state["stages"][name] = "stale"
-    state["changes"].append({"at": now(), "from": stage, "reason": reason})
+def invalidate(state, stage, reason, candidate_ids=None):
+    targets = [state]
+    if candidate_ids is not None:
+        known = {c["id"]: c for c in state["candidates"]}
+        if not candidate_ids or set(candidate_ids) - known.keys():
+            raise ValueError("재검토할 후보 ID를 확인하세요.")
+        targets = [known[cid] for cid in candidate_ids]
+    for target in targets:
+        stages = target.setdefault("stages", {})
+        for name in STAGES[STAGES.index(stage):]:
+            stages[name] = "stale"
+    state["changes"].append({"at": now(), "from": stage, "reason": reason,
+                             "candidate_ids": candidate_ids})
+
+
+def candidate_stages(state, candidate):
+    # A local completion cannot erase a global invalidation.
+    local = candidate.get("stages", {})
+    return {name: "stale" if state["stages"].get(name) == "stale" else local.get(name, state["stages"].get(name, "pending"))
+            for name in STAGES}
+
+
+def progress_stages(state):
+    progress = dict(state["stages"])
+    for candidate in state["candidates"]:
+        for name, status in candidate_stages(state, candidate).items():
+            if status == "stale":
+                progress[name] = "stale"
+    return progress
 
 
 def update_profile(state, patch):
@@ -91,7 +116,7 @@ def update_profile(state, patch):
         return
     state["profile"].update(copy.deepcopy(patch))
     stage = "evaluation"
-    if changed & {"field", "population", "excluded_topics", "contribution", "purpose"}:
+    if changed & {"field", "population", "excluded_topics", "contribution", "purpose", "data", "data_restrictions"}:
         stage = "search"
     invalidate(state, stage, "사용자 조건 변경: " + ", ".join(sorted(changed)))
 

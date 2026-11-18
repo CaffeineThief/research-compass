@@ -44,6 +44,7 @@ def parser():
             from researchlib.state import STAGES
             cmd.add_argument("stage", choices=STAGES)
             cmd.add_argument("--reason", required=True)
+            cmd.add_argument("--candidate", action="append", help="미지정 시 전역 재검토")
         if name == "reserve-agents":
             cmd.add_argument("count", type=int)
         if name == "export":
@@ -86,7 +87,7 @@ def main():
         result = pilot_estimate(pilot)
         if args.command == "record-pilot":
             candidate['pilot'] = pilot
-            invalidate(state, 'evaluation', '파일럿 측정 갱신: ' + args.candidate_id)
+            invalidate(state, 'evaluation', '파일럿 측정 갱신: ' + args.candidate_id, [args.candidate_id])
         result["resource_check"] = resource_check(candidate, state)
     elif args.command == "checklist":
         errors = validate(state)
@@ -129,7 +130,7 @@ def main():
         paper["excluded"] = True
         invalidate(state, "analysis", "논문 제외: " + args.paper_id)
     elif args.command == "invalidate":
-        invalidate(state, args.stage, args.reason)
+        invalidate(state, args.stage, args.reason, args.candidate)
     elif args.command == "reserve-agents":
         reserve_agents(state, args.count)
     elif args.command == "validate":
