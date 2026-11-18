@@ -141,3 +141,5 @@ Crossref도 남은 예산만 요청하고, 제공처의 초과 응답을 제외�
 `profile`의 데이터·이용 제한 변경은 search부터 후속 단계를 전역 stale로 만든다. 선호 투고처만 바꾸면 evaluation부터 재검토하며 문헌·공백·노벨티 기록은 재사용한다. `record-pilot`은 해당 후보의 evaluation/plan/journals만 stale로 만든다. 직접 변경은 `invalidate <state> <stage> --reason '<이유>' --candidate <ID>`로 기록한다. `--candidate`를 생략하면 기존 전역 방식이다.
 
 후보의 선택적 `stages`와 `stage_notes`는 전역과 같은 단계명·상태를 쓴다. 재검토 후 해당 후보 상태를 complete 또는 사유가 있는 partial로 갱신한다. 전역 stale는 후보의 complete로 덮을 수 없다. 전체 진행 표시는 어느 후보든 stale이면 stale이며, 평가와 최종 검증은 각 후보와 전역 상태를 함께 본다. 선택하지 않은 후보의 국소 변경은 선택 후보의 최종 내보내기를 막지 않는다. 기존 전역 상태만 있는 세션도 읽는다.
+
+검색 이력은 `request_count/admitted_count/reused_count`로 요청·새 채택·재사용을 구분한다. 호스트 검색 예약은 요청 1회를 보수적으로 소비하며 취소·실패도 되돌리지 않는다. 동일 record-search 응답 재기록은 사용량을 늘리지 않는다. `search-review`는 완료된 검색에 `review`를 저장하며 action, reason, unresolved_questions, relevant_paper_ids를 검증한다. 리뷰 수정은 채택·요청 예산에 영향을 주지 않는다.

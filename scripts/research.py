@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from researchlib.evaluation import rank
-from researchlib.budget import reserve_search, record_search, search_coverage
+from researchlib.budget import reserve_search, record_search, search_coverage, review_search
 from researchlib.literature import merge_papers
 from researchlib.output import bibliography, markdown, validate, evidence_cards
 from researchlib.planning import pilot_estimate, week_checklist, resource_check
@@ -22,7 +22,7 @@ def parser():
     init.add_argument("directory")
     init.add_argument("--topic", required=True)
     init.add_argument("--test-data", action="store_true")
-    for name in ("search", "reserve-search", "record-search", "import-papers", "profile", "config", "exclude", "invalidate", "reserve-agents", "validate", "evaluate", "export", "coverage", "journal-recheck", "record-pilot", "pilot-estimate", "checklist"):
+    for name in ("search", "reserve-search", "record-search", "search-review", "import-papers", "profile", "config", "exclude", "invalidate", "reserve-agents", "validate", "evaluate", "export", "coverage", "journal-recheck", "record-pilot", "pilot-estimate", "checklist"):
         cmd = sub.add_parser(name)
         cmd.add_argument("state", help="state.json 경로")
         if name in ("search", "reserve-search"):
@@ -33,7 +33,7 @@ def parser():
             cmd.add_argument("--since")
             cmd.add_argument("--until")
             cmd.add_argument("--refresh", action="store_true")
-        if name == "record-search":
+        if name in ("record-search", "search-review"):
             cmd.add_argument("search_id")
             cmd.add_argument("file")
         if name in ("import-papers", "profile", "config"):
@@ -103,6 +103,8 @@ def main():
     elif args.command == "reserve-search":
         result = reserve_search(state, args.query, args.branch, args.provider, args.limit)
         result.update(since=args.since, until=args.until)
+    elif args.command == "search-review":
+        result = review_search(state, args.search_id, json.loads(Path(args.file).read_text(encoding="utf-8")))
     elif args.command == "record-search":
         payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
         result = record_search(state, args.search_id, payload)

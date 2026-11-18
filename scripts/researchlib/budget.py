@@ -41,7 +41,8 @@ def reserve_search(state, query, branch, provider, limit):
         "id": "search-" + uuid.uuid4().hex, "query": query, "branch": branch,
         "provider": provider, "limit": min(limit, remaining_results(state)),
         "at": now(), "status": "pending", "test_data": state["test_data"],
-        "count": 0, "paper_ids": [], "cache_hit": False
+        "count": 0, "paper_ids": [], "cache_hit": False,
+        "request_count": 1, "admitted_count": 0, "reused_count": 0
     }
     entry["allocation_advice"] = allocation
     state["usage"]["requests"] += 1
@@ -70,9 +71,44 @@ def record_search(state, search_id, payload):
         status="failed" if payload.get("error") else "ok",
         error=payload.get("error"), results=copy.deepcopy(accepted),
         received_count=len(results), discarded_count=len(results) - len(accepted),
-        count=len(accepted), completed_at=now(), response_hash=fingerprint
+        count=len(accepted), admitted_count=len(accepted), completed_at=now(), response_hash=fingerprint
     )
     return entry
+
+
+def review_search(state, search_id, review):
+    entry = next((s for s in state["search_log"] if s["id"] == search_id), None)
+    if entry is None or entry.get("status") not in ("ok", "failed"):
+        raise ValueError("완료된 검색 ID가 필요합니다.")
+    validate_review(state, review)
+    entry["review"] = copy.deepcopy(review)
+    return entry
+
+
+def validate_review(state, review):
+    if (not isinstance(review, dict) or review.get("action") not in ("continue", "stop")
+            or not isinstance(review.get("reason"), str) or not review["reason"].strip()
+            or not isinstance(review.get("unresolved_questions"), list)
+            or any(not isinstance(q, str) or not q.strip() for q in review["unresolved_questions"])):
+        raise ValueError("검색 검토: continue/stop, 이유, 남은 질문 배열 필요")
+    from .literature import valid_id_list
+    ids = review.get("relevant_paper_ids")
+    known = {p["id"] for p in state["papers"] if not p.get("excluded")}
+    if not valid_id_list(ids) or set(ids) - known:
+        raise ValueError("검색 검토: 실제 채택 문헌의 고유 relevant_paper_ids 배열 필요")
+
+
+def accounting(entry):
+    cached = bool(entry.get("cache_hit"))
+    values = {
+        "requests": entry.get("request_count", 0 if cached else 1),
+        "admitted": entry.get("admitted_count", 0 if cached else entry.get("count", 0)),
+        "reused": entry.get("reused_count", entry.get("count", 0) if cached else 0),
+    }
+    for key, value in values.items():
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"search {entry.get('id')}.{key}: 0 이상 정수 필요")
+    return values
 
 
 BRANCHES = ("recent", "foundational", "validation", "novelty")
@@ -89,10 +125,11 @@ def search_coverage(state):
     rows, seen = {}, set()
     for branch in BRANCHES:
         logs = [s for s in state["search_log"] if s.get("branch") == branch]
-        paid = [s for s in logs if not s.get("cache_hit")]
-        rows[branch] = {"requests": len(paid), "admitted": sum(s.get("count", 0) for s in paid),
-                        "received": sum(s.get("received_count", s.get("count", 0)) for s in paid),
-                        "discarded": sum(s.get("discarded_count", 0) for s in paid),
+        paid = [s for s in logs if accounting(s)["requests"]]
+        rows[branch] = {"requests": sum(accounting(s)["requests"] for s in logs), "admitted": sum(accounting(s)["admitted"] for s in logs),
+                        "reused": sum(accounting(s)["reused"] for s in logs),
+                        "received": sum(s.get("received_count", s.get("count", 0)) for s in logs),
+                        "discarded": sum(s.get("discarded_count", 0) for s in logs),
                         "cache_hits": sum(bool(s.get("cache_hit")) for s in logs),
                         "failures": sum(s.get("status") == "failed" for s in logs),
                         "zero_hit_searches": sum(s.get("status") == "ok" and s.get("count", 0) == 0 for s in logs),
@@ -105,7 +142,7 @@ def search_coverage(state):
             if alias:
                 aliases[str(alias).casefold()] = paper["id"]
     for search in state["search_log"]:
-        if search.get("cache_hit") or search.get("status") != "ok":
+        if not accounting(search)["admitted"] or search.get("status") != "ok":
             continue
         records = search.get("results", [])
         keys = [(r.get("doi") or r.get("paper_id") or r.get("url")) for r in records] if records else search.get("paper_ids", [])
@@ -126,7 +163,21 @@ def search_coverage(state):
         reserve_results = sum(max(0, rows[b]["target_results"] - rows[b]["admitted"]) for b in ("validation", "novelty") if b != branch)
         row["suggested_requests_available"] = max(0, available_requests - reserve_requests)
         row["suggested_results_available"] = max(0, available_results - reserve_results)
-    return {"allocation_mode": "advisory", "branches": rows, "duplicate_occurrences": duplicates,
+    queries, relevant_seen = [], set()
+    for entry in state["search_log"]:
+        review = entry.get("review")
+        if review is not None:
+            validate_review(state, review)
+        relevant = set(review.get("relevant_paper_ids", [])) if review else set()
+        queries.append({"id": entry["id"], "query": entry.get("query"), **accounting(entry),
+                        "new_relevant": len(relevant - relevant_seen) if review else None,
+                        "action": review.get("action") if review else "review_needed",
+                        "reason": review.get("reason") if review else "관련성·남은 질문 검토 필요",
+                        "unresolved_questions": review.get("unresolved_questions") if review else None})
+        relevant_seen.update(relevant)
+    return {"allocation_mode": "advisory", "queries": queries,
+            "legacy_cache_accounting_unknown": [s["id"] for s in state["search_log"] if s.get("cache_hit") and "admitted_count" not in s],
+            "novelty_caution": "신규·관련 결과 0건과 검색 종료는 노벨티의 증명이 아닙니다.", "branches": rows, "duplicate_occurrences": duplicates,
             "identified_occurrences": identified, "unidentified_occurrences": unidentified,
             "duplicate_method": "Exact DOI/URL/paper-ID identity; unresolved versions and URL aliases can be missed.",
             "unreviewed_branches": [b for b in BRANCHES if not any(s.get('branch') == b and s.get('status') == 'ok' for s in state['search_log'])],
