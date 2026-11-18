@@ -41,3 +41,7 @@
 `coverage`는 실제 요청(requests), 신규 채택(admitted), 세션 내 재사용(reused)을 분리한다. 다른 세션의 캐시를 처음 채택하면 요청은 0, 신규 채택 예산은 소비한다. 같은 캐시를 다시 쓰면 요청·신규 예산을 소비하지 않는다. received/discarded는 캐시를 포함한 각 반환의 건수이며 실제 네트워크 수신량으로 해석하지 않는다. 집계 필드가 없는 과거 캐시는 `legacy_cache_accounting_unknown`으로 표시한다.
 
 각 질의 결과를 검토한 뒤 `search-review <state> <search_id> <review.json>`을 실행한다. 형식은 `{"action":"continue","reason":"가장 가까운 비교 연구 미확인","unresolved_questions":["동일 데이터·연산 조건 비교가 있는가?"],"relevant_paper_ids":["실제로 가져온 문헌 ID"]}`다. 종료도 action=stop으로 남은 질문과 이유를 적는다. 관련성 판단은 원문 검토자의 기록이며 자동 추정하지 않는다. coverage의 질의별 new_relevant는 이전 질의의 관련 문헌 ID와 중복되지 않는 수다. 신규 결과 0건, 반복 결과, 예산 소진만으로 노벨티를 확정하지 않는다. 남은 질문의 중요도와 관련 근거의 증가를 보고 다음 갈래·질의를 선택한다.
+
+검색 리뷰 전에 채택 결과를 문헌 형식으로 정규화해 import-papers로 가져온다. relevant_paper_ids는 해당 질의의 results 또는 캐시 paper_ids에 실제로 연결되는 문헌만 허용한다. DOI URL·문헌 별칭·버전 ID는 대표 문헌 ID로 정규화하며, URL만 있는 호스트 결과는 문헌의 url 또는 확인한 aliases에 원래 결과 URL을 보존한다. 관계를 확인하지 않고 별칭을 추가하지 않는다. 결과가 0건이면 기존 세션의 다른 논문을 그 질의의 신규 관련 문헌으로 넣을 수 없다.
+
+coverage의 result_paper_ids는 연결된 대표 문헌 ID이고 result_link_status는 linked/unknown/unlinked_review다. 과거 기록에 식별자가 없거나 연결이 모호하면 new_relevant=null로 남긴다. 연결되지 않은 과거 리뷰를 읽기 위해 원본 이력을 지우거나 고쳐 쓰지 않는다. 대표 ID 병합 후에도 실제 결과 연결과 확인 가능한 리뷰만으로 신규 관련 수를 계산하며, 재사용은 이전에 확인한 관련 문헌을 새 문헌으로 세지 않는다.

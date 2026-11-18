@@ -5,6 +5,7 @@ import json
 import uuid
 
 from .state import now
+from .literature import doi_key, valid_id_list
 
 
 def remaining_results(state):
@@ -76,26 +77,73 @@ def record_search(state, search_id, payload):
     return entry
 
 
+def identity_key(value):
+    if not isinstance(value, str) or not value.strip():
+        return None
+    value = value.strip()
+    if value.casefold().startswith(("10.", "doi:", "https://doi.org/", "http://doi.org/", "https://dx.doi.org/", "http://dx.doi.org/")):
+        return doi_key(value)
+    return value.rstrip("/")
+
+
+def paper_identities(state):
+    identities = {}
+    for paper in state["papers"]:
+        for record in [paper] + paper.get("versions", []):
+            for value in [record.get("id"), record.get("doi"), record.get("url")] + record.get("aliases", []):
+                key = identity_key(value)
+                if key:
+                    identities.setdefault(key, set()).add(paper["id"])
+    return identities
+
+
+def query_papers(entry, identities):
+    records = entry.get("results")
+    if records is None:
+        records = [{"paper_id": pid} for pid in entry.get("paper_ids", [])]
+        unknown = "paper_ids" not in entry
+    else:
+        unknown = False
+    if not isinstance(records, list) or any(not isinstance(row, dict) for row in records):
+        raise ValueError("search.results: 결과 객체 배열 필요")
+    unknown |= entry.get("count", len(records)) != len(records)
+    linked = set()
+    for record in records:
+        matches = set()
+        for key in ("paper_id", "id", "doi", "url"):
+            matches.update(identities.get(identity_key(record.get(key)), set()))
+        if len(matches) == 1:
+            linked.update(matches)
+        else:
+            unknown = True
+    return linked, unknown
+
+
 def review_search(state, search_id, review):
     entry = next((s for s in state["search_log"] if s["id"] == search_id), None)
     if entry is None or entry.get("status") not in ("ok", "failed"):
         raise ValueError("완료된 검색 ID가 필요합니다.")
-    validate_review(state, review)
-    entry["review"] = copy.deepcopy(review)
+    validate_review(review)
+    identities = paper_identities(state)
+    linked, _ = query_papers(entry, identities)
+    canonical = []
+    for pid in review["relevant_paper_ids"]:
+        matches = identities.get(identity_key(pid), set())
+        if len(matches) != 1 or not matches <= linked:
+            raise ValueError("검색 검토: 해당 질의의 채택·재사용 결과에 연결된 문헌 ID만 허용합니다.")
+        canonical.extend(matches - set(canonical))
+    entry["review"] = {**copy.deepcopy(review), "relevant_paper_ids": canonical}
     return entry
 
 
-def validate_review(state, review):
+def validate_review(review):
     if (not isinstance(review, dict) or review.get("action") not in ("continue", "stop")
             or not isinstance(review.get("reason"), str) or not review["reason"].strip()
             or not isinstance(review.get("unresolved_questions"), list)
             or any(not isinstance(q, str) or not q.strip() for q in review["unresolved_questions"])):
         raise ValueError("검색 검토: continue/stop, 이유, 남은 질문 배열 필요")
-    from .literature import valid_id_list
-    ids = review.get("relevant_paper_ids")
-    known = {p["id"] for p in state["papers"]}
-    if not valid_id_list(ids) or set(ids) - known:
-        raise ValueError("검색 검토: 실제 채택 문헌의 고유 relevant_paper_ids 배열 필요")
+    if not valid_id_list(review.get("relevant_paper_ids")):
+        raise ValueError("검색 검토: 고유 relevant_paper_ids 배열 필요")
 
 
 def accounting(entry):
@@ -125,7 +173,6 @@ def search_coverage(state):
     rows, seen = {}, set()
     for branch in BRANCHES:
         logs = [s for s in state["search_log"] if s.get("branch") == branch]
-        paid = [s for s in logs if accounting(s)["requests"]]
         rows[branch] = {"requests": sum(accounting(s)["requests"] for s in logs), "admitted": sum(accounting(s)["admitted"] for s in logs),
                         "reused": sum(accounting(s)["reused"] for s in logs),
                         "received": sum(s.get("received_count", s.get("count", 0)) for s in logs),
@@ -164,18 +211,31 @@ def search_coverage(state):
         row["suggested_requests_available"] = max(0, available_requests - reserve_requests)
         row["suggested_results_available"] = max(0, available_results - reserve_results)
     queries, relevant_seen = [], set()
+    identities = paper_identities(state)
+    excluded = {p["id"] for p in state["papers"] if p.get("excluded")}
     for entry in state["search_log"]:
+        linked, unknown = query_papers(entry, identities)
         review = entry.get("review")
+        relevant, unlinked = set(), False
         if review is not None:
-            validate_review(state, review)
-        relevant = set(review.get("relevant_paper_ids", [])) if review else set()
-        relevant -= {p["id"] for p in state["papers"] if p.get("excluded")}
+            validate_review(review)
+            for pid in review["relevant_paper_ids"]:
+                matches = identities.get(identity_key(pid), set())
+                if len(matches) != 1 or not matches <= linked:
+                    unlinked = True
+                else:
+                    relevant.update(matches)
+        relevant -= excluded
+        link_status = "unknown" if unknown else "unlinked_review" if unlinked else "linked"
+        counted = review is not None and not unlinked and not unknown
         queries.append({"id": entry["id"], "query": entry.get("query"), **accounting(entry),
-                        "new_relevant": len(relevant - relevant_seen) if review else None,
+                        "result_paper_ids": sorted(linked), "result_link_status": link_status,
+                        "new_relevant": len(relevant - relevant_seen) if counted else None,
                         "action": review.get("action") if review else "review_needed",
                         "reason": review.get("reason") if review else "관련성·남은 질문 검토 필요",
                         "unresolved_questions": review.get("unresolved_questions") if review else None})
-        relevant_seen.update(relevant)
+        if counted:
+            relevant_seen.update(relevant)
     return {"allocation_mode": "advisory", "queries": queries,
             "legacy_cache_accounting_unknown": [s["id"] for s in state["search_log"] if s.get("cache_hit") and "admitted_count" not in s],
             "novelty_caution": "신규·관련 결과 0건과 검색 종료는 노벨티의 증명이 아닙니다.", "branches": rows, "duplicate_occurrences": duplicates,

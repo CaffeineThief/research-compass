@@ -147,3 +147,5 @@ Crossref도 남은 예산만 요청하고, 제공처의 초과 응답을 제외�
 진행 집계의 우선순위는 stale > in_progress > pending > partial > complete다. 후보의 단계와 전역 공통 단계 중 더 미완료인 상태를 사용하며, 전체 표시는 모든 후보를 함께 집계한다. 관련 검토 단계가 partial인 후보는 사유가 있어 최종 제안으로 기록할 수 있어도 실행 준비 평가는 conditional이다. pending/in_progress도 passed로 표시하지 않는다. 전역만 있는 기존 세션에도 같은 규칙을 적용한다. 선택하지 않은 후보만 미완료이면 전체 표시에는 남지만 해당 상태로 다른 선택 후보의 최종화를 막지 않는다.
 
 검증은 상위 객체 형식을 확인한 뒤 해당 하위 필드를 검사한다. 미완성 초안에서 plan/novelty/gates/scores 또는 profile/usage/stages의 형식이 잘못되면 validate/export는 errors 배열과 종료 코드 2를 반환한다. 실패로 원본 state나 기존 결과 파일을 덮어쓰지 않는다. screening/hold 검토 갱신도 필요한 plan·novelty 객체의 형식을 먼저 확인한다.
+
+search-review의 relevant_paper_ids는 질의의 실제 채택·재사용 기록과 대조한다. 결과의 id/paper_id/doi/url과 문헌·버전의 id/doi/url/aliases로 연결을 확인한다. 새 리뷰의 미연결·모호한 문헌은 저장 전 오류로 거부하며 별칭은 대표 ID로 기록한다. coverage는 기존 이력을 변경하지 않고 result_paper_ids, result_link_status와 확인 가능한 new_relevant를 보여 준다. 연결이 불완전한 과거 이력은 null로 표시한다.
