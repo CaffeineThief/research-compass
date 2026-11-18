@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#설치">설치</a> · <a href="#사용법">사용법</a> · <a href="#결과-파일">결과 파일</a> · <a href="README.md">English</a> · v1.0.1
+  <a href="#설치">설치</a> · <a href="#사용법">사용법</a> · <a href="#결과-파일">결과 파일</a> · <a href="README.md">English</a> · v1.0.2
 </p>
 
 ---
@@ -57,7 +57,9 @@ $research-compass:research-compass
 
 파일럿 측정, 검색 예산, 투고처 재확인과 최종 보고서 검증은 [실행 절차](skills/research-compass/references/workflow.md)에, CLI 사용법과 저장 형식은 [데이터 계약](skills/research-compass/references/data-contract.md)에 있습니다.
 
-1.0.1에서는 초기 선별 후 상세 검토, 근거와 연결된 후보 요약, 후보별 진행 상태를 추가했습니다. 문제와 연구 질문에서 의미 있는 효과·독립 표본·측정 기반 자원·시간대와 원고 준비 기간을 반영한 투고 마감까지 연결합니다.
+초기 선별 후 상세 검토를 진행하고, 근거와 연결된 후보 요약과 후보별 진행 상태를 제공합니다. 문제와 연구 질문에서 의미 있는 효과·독립 표본·측정 기반 자원·시간대와 원고 준비 기간을 반영한 투고 마감까지 연결합니다.
+
+1.0.2에서는 최종 노벨티 검증, 자원 단위 검사, 진행 상태 표시, 미완성 초안 처리, 일광절약시간 계산, 질의별 관련 문헌 집계의 오류 6건을 수정했습니다. 회귀 테스트는 130개입니다.
 
 10개 개선 항목의 완료·검증 기록은 [개선 실행 계획](docs/IMPROVEMENT_PLAN.md)에 있습니다. [오프라인 비교](docs/benchmarks/rc07-review-depth.json)는 합성 입력을 사용하며 실제 문헌 탐색 품질이나 LLM 비용을 측정한 결과가 아닙니다.
 
