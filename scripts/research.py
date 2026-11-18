@@ -5,11 +5,11 @@ import json
 import sys
 from pathlib import Path
 
-from researchlib.evaluation import rank
-from researchlib.budget import reserve_search, record_search, search_coverage
+from researchlib.evaluation import rank, record_review
+from researchlib.budget import reserve_search, record_search, search_coverage, review_search
 from researchlib.literature import merge_papers
 from researchlib.output import bibliography, markdown, validate, evidence_cards
-from researchlib.planning import pilot_estimate, week_checklist
+from researchlib.planning import pilot_estimate, week_checklist, resource_check
 from researchlib.journals import recheck_journals
 from researchlib.search import run_search
 from researchlib.state import invalidate, load, new_state, reserve_agents, save, update_profile, validate_config
@@ -22,7 +22,7 @@ def parser():
     init.add_argument("directory")
     init.add_argument("--topic", required=True)
     init.add_argument("--test-data", action="store_true")
-    for name in ("search", "reserve-search", "record-search", "import-papers", "profile", "config", "exclude", "invalidate", "reserve-agents", "validate", "evaluate", "export", "coverage", "journal-recheck", "record-pilot", "pilot-estimate", "checklist"):
+    for name in ("search", "reserve-search", "record-search", "search-review", "import-papers", "profile", "config", "exclude", "invalidate", "reserve-agents", "validate", "evaluate", "export", "coverage", "journal-recheck", "review-candidate", "record-pilot", "pilot-estimate", "checklist"):
         cmd = sub.add_parser(name)
         cmd.add_argument("state", help="state.json 경로")
         if name in ("search", "reserve-search"):
@@ -33,7 +33,7 @@ def parser():
             cmd.add_argument("--since")
             cmd.add_argument("--until")
             cmd.add_argument("--refresh", action="store_true")
-        if name == "record-search":
+        if name in ("record-search", "search-review"):
             cmd.add_argument("search_id")
             cmd.add_argument("file")
         if name in ("import-papers", "profile", "config"):
@@ -44,20 +44,21 @@ def parser():
             from researchlib.state import STAGES
             cmd.add_argument("stage", choices=STAGES)
             cmd.add_argument("--reason", required=True)
+            cmd.add_argument("--candidate", action="append", help="미지정 시 전역 재검토")
         if name == "reserve-agents":
             cmd.add_argument("count", type=int)
         if name == "export":
             cmd.add_argument("--format", choices=("md", "bib", "ris", "cards", "checklist", "all"), default="all")
         if name in ("validate", "export"):
             cmd.add_argument("--final", action="store_true", help="최종 보고서 준비 상태 검증")
-        if name in ("record-pilot", "pilot-estimate"):
+        if name in ("record-pilot", "pilot-estimate", "review-candidate"):
             cmd.add_argument("candidate_id")
-        if name == "record-pilot":
-            cmd.add_argument("file", help="실측 파일럿 JSON")
+        if name in ("record-pilot", "review-candidate"):
+            cmd.add_argument("file", help="후보별 기록 JSON")
         if name == "checklist":
             cmd.add_argument("--candidate", required=True)
         if name == "journal-recheck":
-            cmd.add_argument("--as-of", help="YYYY-MM-DD; 기본값 오늘")
+            cmd.add_argument("--as-of", help="YYYY-MM-DD 또는 UTC offset을 포함한 ISO 시각; 기본값 현재")
             cmd.add_argument("--max-age-days", type=int, default=90)
     return p
 
@@ -78,6 +79,8 @@ def main():
         result = search_coverage(state)
     elif args.command == "journal-recheck":
         result = recheck_journals(state, args.as_of, args.max_age_days)
+    elif args.command == "review-candidate":
+        result = record_review(state, args.candidate_id, json.loads(Path(args.file).read_text(encoding="utf-8")))
     elif args.command in ("record-pilot", "pilot-estimate"):
         candidate = next((c for c in state['candidates'] if c['id'] == args.candidate_id), None)
         if candidate is None:
@@ -86,7 +89,8 @@ def main():
         result = pilot_estimate(pilot)
         if args.command == "record-pilot":
             candidate['pilot'] = pilot
-            invalidate(state, 'evaluation', '파일럿 측정 갱신: ' + args.candidate_id)
+            invalidate(state, 'evaluation', '파일럿 측정 갱신: ' + args.candidate_id, [args.candidate_id])
+        result["resource_check"] = resource_check(candidate, state)
     elif args.command == "checklist":
         errors = validate(state)
         if errors:
@@ -101,6 +105,8 @@ def main():
     elif args.command == "reserve-search":
         result = reserve_search(state, args.query, args.branch, args.provider, args.limit)
         result.update(since=args.since, until=args.until)
+    elif args.command == "search-review":
+        result = review_search(state, args.search_id, json.loads(Path(args.file).read_text(encoding="utf-8")))
     elif args.command == "record-search":
         payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
         result = record_search(state, args.search_id, payload)
@@ -128,7 +134,7 @@ def main():
         paper["excluded"] = True
         invalidate(state, "analysis", "논문 제외: " + args.paper_id)
     elif args.command == "invalidate":
-        invalidate(state, args.stage, args.reason)
+        invalidate(state, args.stage, args.reason, args.candidate)
     elif args.command == "reserve-agents":
         reserve_agents(state, args.count)
     elif args.command == "validate":
@@ -163,6 +169,6 @@ def main():
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (ValueError, OSError, KeyError, TypeError) as exc:
+    except (ValueError, OSError, KeyError, TypeError, OverflowError) as exc:
         print(f"오류: {exc}", file=sys.stderr)
         sys.exit(2)

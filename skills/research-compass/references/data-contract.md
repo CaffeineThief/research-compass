@@ -37,6 +37,7 @@ python3 "$SCRIPT" export ./research-run/state.json --format all
 - `version`: preprint / version-of-record / revised 또는 확인한 버전명; 미확인은 unspecified.
 - `access`: unavailable / abstract_only / partial / full_text.
 - partial/full_text에는 공통 source 형식의 `read_evidence` 필요. abstract_only에는 확보한 `abstract` 필요.
+- 동일 버전의 문헌을 다시 가져오면 실제 읽은 위치를 중복 제거해 병합한다. 대표 기록의 ID·버전은 보존한다. 다른 ID가 같은 DOI·버전명을 가리키면 대표 기록에서도 그 열람 근거를 사용한다.
 - 동일 연구의 서로 다른 DOI: 공통 `work_id`와 공통 source 형식의 `identity_evidence` 필요. 병합은 원래 대표 ID·열람 버전을 보존하고 다른 버전을 `versions`에 기록한다.
 - `excluded=true`는 기록을 삭제하지 않고 추천 근거에서 제외한다. 제외된 문헌을 참조하는 주장·후보는 재검토 전 검증 오류가 된다.
 
@@ -50,10 +51,14 @@ python3 "$SCRIPT" export ./research-run/state.json --format all
   "text": "확인한 주장 또는 명시적으로 구분한 해석",
   "kind": "author_claim",
   "limitation_kind": "author_acknowledged",
-  "evidence": [{"paper_id":"P1","location":"실제로 읽은 절·표","scope":"full_text"}],
+  "evidence": [{"paper_id":"P1","version":"실제로 읽은 버전명","location":"실제로 읽은 절·표","scope":"full_text"}],
   "uncertainty": "적용 범위 및 확인하지 못한 조건"
 }
 ```
+
+버전이 명시된 주장은 노벨티·근거 카드와 같은 버전 선택 및 위치·범위 검사로 검증한다. 대표 문헌이 초록 상태여도 인용한 다른 버전의 본문을 실제 열람했다면 그 버전을 검사한다. 버전명이 같고 ID가 다른 기록은 `version_id`로 지정한다. 같은 ID·버전명에 서로 다른 DOI가 연결되어 모호하면 각 버전의 ID를 정리해야 한다.
+
+버전 정보가 전혀 없는 기존 주장은 일반 초안 검증에서 기존 접근 상태 검사를 유지한다. `version` 또는 `version_id`를 하나라도 지정하면 명시적 버전 검사를 적용하고, 최종 검증에는 버전·열람 위치·범위를 모두 기록해야 한다.
 
 `kind`: fact / author_claim / interpretation / hypothesis. `limitation_kind`는 해당 없으면 null, 아니면 author_acknowledged / empirically_confirmed / agent_inferred. 초록 근거는 `scope=abstract`만 허용한다. partial이면 실제 확인한 절에 한정해 `scope=partial`로 기록한다.
 
@@ -63,12 +68,16 @@ python3 "$SCRIPT" export ./research-run/state.json --format all
 
 ## 후보
 
-id, title, paper_ids(활성 문헌), conflict_ids, gates, scores, novelty, plan.
+id, title, paper_ids(활성 문헌), gap_ids(연구 공백 ID 배열), conflict_ids, gates, scores, novelty, plan.
 
+- `gap_ids`는 중복 없는 공백 ID 배열이다. `gaps[].claim_ids`를 통해 주장과 실제 열람한 문헌 버전·위치에 연결한다. 공백의 `claim_ids`도 비어 있지 않은 고유 ID 배열이어야 한다. 연결된 모든 공백과 주장의 근거를 검사한다. 잘못된 ID·형식은 일반 검증에서도 오류다.
+- 연결 미완료 후보에는 `gap_review={"reason":"실제 근거 부족 사유","next_actions":["다음 확인 작업"]}`를 기록한다. 기존 세션에서 `gap_ids`가 없거나 빈 배열이면 초안으로 읽고 `conditional`로 평가하며, 누락된 검토 기록도 보고서에 표시한다. 연결 정보는 호스트가 원문 확인 후 추가한다.
+- 최종 선택 후보는 유효한 `gap_ids → claim_ids → evidence` 연결이 필요하다. 연결 부족 후보는 보완 과제를 포함한 초안으로 제공하고, 최종 추천 수에 포함하기 전 연결을 보완한다. 추천 후보가 없을 때는 `report.selected_candidate_ids=[]`, `no_candidate_reason`, `next_actions`로 결과를 기록할 수 있다.
 - gates 키: data, resources, falsifiable, baseline, ethics_rights. 각 값은 `{"status":"unknown","reason":"확인 과제","evidence":null}`로 시작한다. pass에는 reason과 유효 source가 필요하다.
 - scores 키: novelty, importance, relevance, feasibility, evaluation, reproducibility, venue_fit. 각 값은 `{"value":null,"reason":"미확인","uncertainty":"남은 불확실성","evidence":null}`. 값 범위 0~5; 근거가 충분하면 source를 기록한다.
 - novelty: contribution, status, search_ids, closest_paper_ids, comparison(문제·방법·가정·데이터·평가·기여 6축), uncertainty. `search_ids`는 별도의 성공한 branch=novelty 검색을 참조한다. status는 pending / distinct_within_scope / duplicate. 실패 검색만으로 검증 완료 불가.
-- plan은 [output.md](output.md)의 18개 키. 문자열로 쓰고 근거 문헌 ID/URL을 포함한다.
+- plan은 [output.md](output.md)의 23개 키. 문자열로 쓰고 근거 문헌 ID/URL을 포함한다.
+- `resource_plan`은 예상 연구 작업시간과 근거 또는 미산정 사유·측정 계획을 기록한다. 가용 시간은 `profile.resource_budget`에 관리한다. 조건별 파일럿 집계·실행 수 대조·입력 형식은 [실행 절차](workflow.md)의 2절을 따른다.
 
 ## 투고처
 
@@ -126,3 +135,11 @@ Crossref도 남은 예산만 요청하고, 제공처의 초과 응답을 제외�
 ## 실행 준비 기록
 
 [workflow.md](workflow.md)에 근거 카드, 6축 비교, pilot, provenance, design, first_week, report, 검색 배분과 저널 재확인 명령을 정의한다. schema_version=1과 기존 데이터를 유지하는 추가 필드이며, 이전 문자열 비교는 읽을 수 있지만 조건부로 평가한다. `source=null`인 미확인 저널 필드는 정상적으로 내보낸다. 일반 validate는 초안을 허용하고 --final은 보고서 완결성을 별도로 검사한다.
+
+### 조건 변경과 후보별 재검토
+
+`profile`의 데이터·이용 제한 변경은 search부터 후속 단계를 전역 stale로 만든다. 선호 투고처만 바꾸면 evaluation부터 재검토하며 문헌·공백·노벨티 기록은 재사용한다. `record-pilot`은 해당 후보의 evaluation/plan/journals만 stale로 만든다. 직접 변경은 `invalidate <state> <stage> --reason '<이유>' --candidate <ID>`로 기록한다. `--candidate`를 생략하면 기존 전역 방식이다.
+
+후보의 선택적 `stages`와 `stage_notes`는 전역과 같은 단계명·상태를 쓴다. 재검토 후 해당 후보 상태를 complete 또는 사유가 있는 partial로 갱신한다. 전역 stale는 후보의 complete로 덮을 수 없다. 전체 진행 표시는 어느 후보든 stale이면 stale이며, 평가와 최종 검증은 각 후보와 전역 상태를 함께 본다. 선택하지 않은 후보의 국소 변경은 선택 후보의 최종 내보내기를 막지 않는다. 기존 전역 상태만 있는 세션도 읽는다.
+
+검색 이력은 `request_count/admitted_count/reused_count`로 요청·새 채택·재사용을 구분한다. 호스트 검색 예약은 요청 1회를 보수적으로 소비하며 취소·실패도 되돌리지 않는다. 동일 record-search 응답 재기록은 사용량을 늘리지 않는다. `search-review`는 완료된 검색에 `review`를 저장하며 action, reason, unresolved_questions, relevant_paper_ids를 검증한다. 리뷰 수정은 채택·요청 예산에 영향을 주지 않는다.

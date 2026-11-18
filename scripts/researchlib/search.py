@@ -85,7 +85,8 @@ def run_search(state, cache_dir, query, branch, provider="crossref", limit=10, s
     cache_file = Path(cache_dir) / (key + ".json")
     entry = {"id": "search-" + str(len(state["search_log"]) + 1), "query": query,
              "branch": branch, "provider": provider, "since": since, "until": until,
-             "limit": limit, "at": now(), "test_data": False, "cache_hit": False}
+             "limit": limit, "at": now(), "test_data": False, "cache_hit": False,
+             "request_count": 0, "admitted_count": 0, "reused_count": 0}
     start = time.monotonic()
     try:
         cached = None
@@ -107,8 +108,11 @@ def run_search(state, cache_dir, query, branch, provider="crossref", limit=10, s
             entry["received_count"] = len(papers)
             if previous:
                 papers = [p for p in papers if p["id"] in previous["paper_ids"]]
+                entry["reused_count"] = len(papers)
             else:
+                merge_papers(state["papers"], papers, False)
                 papers = admit_results(state, papers, limit)
+                entry["admitted_count"] = len(papers)
             entry["discarded_count"] = entry["received_count"] - len(papers)
         else:
             check_search_budget(state)
@@ -116,9 +120,12 @@ def run_search(state, cache_dir, query, branch, provider="crossref", limit=10, s
             effective_limit = min(limit, remaining_results(state))
             entry["limit"] = effective_limit
             usage["requests"] += 1
+            entry["request_count"] = 1
             papers = adapter.search(query, effective_limit, since, until, min(cfg["request_timeout"], cfg["max_seconds"] - usage["seconds"]))
             entry["received_count"] = len(papers)
+            merge_papers(state["papers"], papers[:effective_limit], False)
             papers = admit_results(state, papers, effective_limit)
+            entry["admitted_count"] = len(papers)
             entry["discarded_count"] = entry["received_count"] - len(papers)
             # Cache only admitted records so excess responses cannot re-enter later.
             merge_papers(state["papers"], papers, False)

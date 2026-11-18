@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation">Installation</a> · <a href="#usage">Usage</a> · <a href="#output-files">Output files</a> · <a href="README.ko.md">한국어</a> · v1.0.0
+  <a href="#installation">Installation</a> · <a href="#usage">Usage</a> · <a href="#output-files">Output files</a> · <a href="README.ko.md">한국어</a> · v1.0.1
 </p>
 
 ---
@@ -56,6 +56,10 @@ Full-text review and venue verification require access to the source papers and 
 To resume, invoke the skill with the path to `state.json` and describe the changes you want. If you upload files directly to GitHub, exclude `runs/`, which contains private research results.
 
 The [workflow guide](skills/research-compass/references/workflow.md) covers pilot measurements, search budgets, venue rechecks, and final report validation. The [data contract](skills/research-compass/references/data-contract.md) covers CLI usage and file formats. Both guides are in Korean.
+
+Version 1.0.1 adds screening before detailed review, a candidate summary with source links, and candidate-specific progress tracking. Plans connect the problem and research question to meaningful effects, independent samples, measured resources, and submission deadlines with time zones and writing time.
+
+All ten improvements and their checks are recorded in the [improvement plan](docs/IMPROVEMENT_PLAN.md), in Korean. The [offline comparison](docs/benchmarks/rc07-review-depth.json) uses synthetic inputs; it does not measure real literature-search quality or LLM costs.
 
 ## License
 

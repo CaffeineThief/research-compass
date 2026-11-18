@@ -35,7 +35,12 @@ def complete():
     c = s['candidates'][0]
     c['plan'] = dict.fromkeys(PLAN_FIELDS, 'TEST ONLY: recorded plan')
     c['pilot'] = measured()
+    c['pilot']['runs'] = 6
+    c['pilot']['assumptions'] = 'TEST same measured step cost for both conditions; six runs total'
     c['design'] = {"primary_comparison": "TEST A vs B", "primary_outcome": "TEST outcome", "independent_unit": "TEST patient", "controls": "TEST fixed split", "uncertainty": "TEST patient bootstrap", "budget_rationale": "TEST matched steps; record elapsed time separately", "matched_budget": "steps", "repeated_runs": 3}
+    c['design']['conditions'] = 2
+    c['design']['effect_plan'] = {'status': 'quantitative', 'metric': 'TEST AUROC difference', 'minimum_effect': 0.02, 'unit': 'TEST patient', 'required_units': 100, 'available_units': 150, 'basis': 'TEST synthetic simulation, not a real sample calculation', 'assumptions': 'TEST patient clusters, fixed baseline', 'source': source(), 'precision': {'kind': 'ci_half_width', 'target': 0.01, 'level': 0.95}, 'required_repeated_runs': 3}
+    c['resource_plan']['scope'] = {'unit': 'TEST patient', 'evaluation_units': 150, 'repeated_runs': 3}
     c['provenance'] = {"assets": [{"id": "TEST-D1", "kind": "dataset", "name": "TEST DATA", "version": "TEST v1", "source": source(), "identifier_strategy": "TEST manifest hash; no patient IDs stored here", "split": "TEST patient split", "pretraining_exposure": "TEST no other checkpoint", "rights": {"status": "verified", "reason": "TEST permission only", "source": source()}, "leakage": {"status": "passed", "reason": "TEST overlap check", "source": source()}}]}
     c['first_week'] = [{"id": f"TEST-T{i}", "category": cat, "day": i + 1, "text": "TEST ONLY task", "done": False} for i, cat in enumerate(WEEK_CATEGORIES)]
     return s
@@ -246,6 +251,7 @@ class WorkflowTests(unittest.TestCase):
         s['papers'][0]['versions'] = [version]
         for axis in s['candidates'][0]['novelty']['comparison'].values():
             axis['evidence'][0].update(version='version-of-record', version_id='TEST-V2')
+        s['claims'][0]['evidence'][0].update(version='version-of-record', version_id='TEST-V2')
         self.assertEqual(rank(s)[0]['status'], 'passed')
 
     def test_final_export_failure_preserves_previous_artifact(self):
@@ -277,7 +283,8 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), before)
             save(pilot, measured())
             subprocess.run(cli + ['record-pilot', str(path), 'TEST-C1', str(pilot)], capture_output=True, check=True)
-            self.assertEqual(load(path)['stages']['evaluation'], 'stale')
+            self.assertEqual(load(path)['candidates'][0]['stages']['evaluation'], 'stale')
+            self.assertEqual(load(path)['stages']['evaluation'], 'complete')
 
 
 if __name__ == '__main__':
