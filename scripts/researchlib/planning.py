@@ -160,6 +160,24 @@ def effect_check(design, final=False):
     return reasons
 
 
+def validate_resource_scope(scope, design):
+    if not isinstance(scope, dict) or not isinstance(scope.get("unit"), str) or not scope["unit"].strip():
+        raise ValueError("resource_plan.scope: 독립 단위·평가 표본 수·반복 수 필요")
+    number(scope, "evaluation_units", integer=True, positive=False)
+    number(scope, "repeated_runs", integer=True)
+    effect = design.get("effect_plan") if isinstance(design, dict) else None
+    if isinstance(effect, dict) and effect.get("status") == "quantitative" and scope["unit"] != effect.get("unit"):
+        raise ValueError("resource_plan.scope.unit: 효과 계획의 독립 평가 단위와 일치해야 함")
+    if "events" in scope:
+        events = scope["events"]
+        if not isinstance(events, dict) or not isinstance(events.get("unit"), str) or not events["unit"].strip():
+            raise ValueError("resource_plan.scope.events: 사건 단위와 count 필요")
+        number(events, "count", integer=True, positive=False)
+        expected = effect.get("events") if isinstance(effect, dict) else None
+        if isinstance(expected, dict) and events["unit"] != expected.get("unit"):
+            raise ValueError("resource_plan.scope.events.unit: 효과 계획의 사건 단위와 일치해야 함")
+
+
 def resource_check(candidate, state):
     capacity = resource_budget(state["profile"])
     design = candidate.get("design") or {}
@@ -209,13 +227,10 @@ def resource_check(candidate, state):
         scope = (candidate.get("resource_plan") or {}).get("scope")
         if scope is None:
             reasons.append("resource_plan.scope: 표본·반복 수 변경에 따른 평가·작업 비용 재산정 필요")
-        elif not isinstance(scope, dict):
-            raise ValueError("resource_plan.scope: 객체 필요")
         else:
-            if scope.get("unit") != effect["unit"]:
-                raise ValueError("resource_plan.scope.unit: 효과 계획의 독립 평가 단위와 일치해야 함")
-            units = number(scope, "evaluation_units", integer=True, positive=False)
-            repeats = number(scope, "repeated_runs", integer=True)
+            validate_resource_scope(scope, design)
+            units = scope["evaluation_units"]
+            repeats = scope["repeated_runs"]
             events = effect.get("events")
             events_fit = True
             if events is not None:
@@ -303,15 +318,7 @@ def planning_errors(candidate, final=False):
             work_estimate(candidate.get("resource_plan"))
             scope = candidate.get("resource_plan", {}).get("scope")
             if scope is not None:
-                if not isinstance(scope, dict) or not isinstance(scope.get("unit"), str) or not scope["unit"].strip():
-                    raise ValueError("resource_plan.scope: 독립 단위·평가 표본 수·반복 수 필요")
-                number(scope, "evaluation_units", integer=True, positive=False)
-                number(scope, "repeated_runs", integer=True)
-                if "events" in scope:
-                    events = scope["events"]
-                    if not isinstance(events, dict) or not isinstance(events.get("unit"), str) or not events["unit"].strip():
-                        raise ValueError("resource_plan.scope.events: 사건 단위와 count 필요")
-                    number(events, "count", integer=True, positive=False)
+                validate_resource_scope(scope, design)
         except ValueError as exc:
             errors.append(str(exc))
     tasks = candidate.get("first_week")

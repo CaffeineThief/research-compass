@@ -51,3 +51,28 @@ class FinalNoveltyTests(unittest.TestCase):
                 self.assertNotIn('Traceback', result.stderr)
             self.assertEqual(path.read_bytes(), before)
             for name in names: self.assertEqual((path.parent/name).read_text(), 'Previous output')
+
+
+class ResourceValidationTests(unittest.TestCase):
+    def test_units_are_input_errors_before_export(self):
+        s = complete(); s['candidates'][0]['resource_plan']['scope']['unit'] = 'TEST image'
+        self.assertTrue(any('unit' in e for e in validate(s)))
+        self.assertTrue(validate(s, final=True))
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td)/'state.json'; save(path, s); before = path.read_bytes()
+            report = path.parent/'report.md'; report.write_text('Previous output')
+            for command in ('validate', 'export'):
+                result = subprocess.run([sys.executable, str(ROOT/'scripts/research.py'), command, str(path), '--final'], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2, result.stdout+result.stderr)
+                self.assertTrue(json.loads(result.stdout)['errors'])
+                self.assertNotIn('Traceback', result.stderr)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(report.read_text(), 'Previous output')
+
+    def test_valid_and_pending_resource_records_export(self):
+        for pending in (False, True):
+            s = complete()
+            if pending:
+                s['candidates'][0]['resource_plan'] = {'status': 'pending', 'reason': 'TEST evaluation timing unknown', 'measurement_plan': 'TEST time independent patient evaluation'}
+            self.assertEqual(validate(s, final=True), [])
+            self.assertIn('## TEST-C1:', markdown(s))
