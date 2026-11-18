@@ -66,7 +66,7 @@ def moment(value, timezone_name, allow_date=False):
     instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if instant.tzinfo is None or instant.utcoffset() != instant.astimezone(local_zone).utcoffset():
         raise ValueError("일정: 시각의 UTC offset과 명시한 시간대가 일치해야 함")
-    return instant
+    return instant.astimezone(local_zone)
 
 
 def submission_plan(candidate):
@@ -85,7 +85,11 @@ def submission_plan(candidate):
     days = plan.get("writing_days")
     if isinstance(days, bool) or not isinstance(days, int) or days < 0:
         raise ValueError("submission_plan.writing_days: 원고·검토·형식 준비 기간(0 이상 정수) 필요")
-    return completed + timedelta(days=days)
+    ready = completed + timedelta(days=days) if days else completed
+    roundtrip = ready.astimezone(timezone.utc).astimezone(ready.tzinfo)
+    if ready.utcoffset() != roundtrip.utcoffset():
+        raise ValueError("submission_plan: 준비 종료가 일광절약시간 전환의 존재하지 않는 시각입니다. 일정을 확인하세요.")
+    return ready
 
 
 def schedule_deadlines(venue):
@@ -122,7 +126,7 @@ def schedule_deadlines(venue):
         visiting.add(did)
         item, instant = known[did]
         for required in item.get("requires", []):
-            if required not in known or known[required][1] > instant:
+            if required not in known or known[required][1].astimezone(timezone.utc) > instant.astimezone(timezone.utc):
                 raise ValueError("deadline.requires: 존재하며 제출 전인 선행 마감 필요")
             visit(required)
         visiting.remove(did); visited.add(did)
@@ -203,7 +207,7 @@ def schedule_check(state, venue, as_of=None):
         elif status == "deadline_day_needs_recheck":
             readiness = "needs_time_recheck"
         elif item["kind"] in ("submission", "commitment"):
-            readiness = "readiness_unknown" if ready is None else "ready_in_time" if ready <= instant else "insufficient_preparation_time"
+            readiness = "readiness_unknown" if ready is None else "ready_in_time" if ready.astimezone(timezone.utc) <= instant.astimezone(timezone.utc) else "insufficient_preparation_time"
             if readiness == "ready_in_time" and any(r not in completed for r in item.get("requires", [])):
                 readiness = "pending_prerequisite"
         else:

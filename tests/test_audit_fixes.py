@@ -139,3 +139,52 @@ class DraftShapeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 record_review(s, 'TEST-C1', {'stage': 'screening', 'reason': 'TEST', 'next_actions': [], 'main_blocker': 'TEST'})
             self.assertEqual(s, before)
+
+
+class WritingTimezoneTests(unittest.TestCase):
+    def schedule(self, completion, days, deadline, zone='America/New_York'):
+        from test_submission_schedule import scheduled
+        s = scheduled(); c = s['candidates'][0]; v = s['journals'][0]
+        c['submission_plan'].update(experiments_complete=completion, writing_days=days, timezone=zone)
+        v['schedule']['deadlines'] = [{'id': 'paper', 'kind': 'submission', 'at': deadline, 'timezone': zone}]
+        return s, v
+
+    def test_calendar_days_across_spring_and_fall(self):
+        from researchlib.journals import schedule_check
+        for completion, deadline, expected, readiness in (
+            ('2027-03-13T12:00:00-05:00', '2027-03-15T12:30:00-04:00', '2027-03-15T12:00:00-04:00', 'ready_in_time'),
+            ('2027-11-06T12:00:00-04:00', '2027-11-08T11:30:00-05:00', '2027-11-08T12:00:00-05:00', 'insufficient_preparation_time'),
+        ):
+            s, v = self.schedule(completion, 2, deadline)
+            result = schedule_check(s, v, '2027-01-01T00:00:00Z')
+            self.assertEqual(result['ready_at'], expected)
+            self.assertEqual(result['deadlines'][0]['readiness'], readiness)
+
+    def test_repeated_hour_uses_actual_instant_and_zero_days_preserve_fold(self):
+        from researchlib.journals import schedule_check
+        for completion, deadline, expected in (
+            ('2027-11-07T01:45:00-04:00', '2027-11-07T01:30:00-05:00', 'ready_in_time'),
+            ('2027-11-07T01:15:00-05:00', '2027-11-07T01:30:00-04:00', 'insufficient_preparation_time'),
+        ):
+            s, v = self.schedule(completion, 0, deadline)
+            result = schedule_check(s, v, '2027-01-01T00:00:00Z')
+            self.assertEqual(result['ready_at'], completion)
+            self.assertEqual(result['deadlines'][0]['readiness'], expected)
+        s, v = self.schedule('2027-11-06T12:00:00-04:00', 0, '2027-11-07T01:30:00-05:00')
+        v['schedule']['deadlines'].insert(0, {'id': 'abstract', 'kind': 'abstract', 'at': '2027-11-07T01:45:00-04:00', 'timezone': 'America/New_York'})
+        v['schedule']['deadlines'][1]['requires'] = ['abstract']
+        self.assertEqual(schedule_check(s, v, '2027-01-01T00:00:00Z')['deadlines'][1]['readiness'], 'pending_prerequisite')
+
+    def test_fixed_zones_date_inputs_and_deadline_boundaries(self):
+        from researchlib.journals import schedule_check, submission_plan
+        for zone, offset in (('UTC', '+00:00'), ('Asia/Seoul', '+09:00'), ('Etc/GMT+12', '-12:00')):
+            s, v = self.schedule('2027-01-01', 2, '2027-01-04T00:00:00'+offset, zone)
+            self.assertEqual(submission_plan(s['candidates'][0]).isoformat(), '2027-01-03T23:59:59.999999'+offset)
+            for current, expected in (('2027-01-03T23:59:59', 'upcoming'), ('2027-01-04T00:00:00', 'expired'), ('2027-01-04T00:00:01', 'expired')):
+                self.assertEqual(schedule_check(s, v, current+offset)['deadlines'][0]['timing'], expected)
+
+    def test_nonexistent_ready_time_is_flagged(self):
+        from researchlib.journals import submission_plan
+        s, v = self.schedule('2027-03-13T02:30:00-05:00', 1, '2027-03-15T12:00:00-04:00')
+        with self.assertRaisesRegex(ValueError, '일광절약시간'):
+            submission_plan(s['candidates'][0])

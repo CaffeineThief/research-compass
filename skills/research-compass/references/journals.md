@@ -48,3 +48,5 @@ SCIE·KCI 등은 확인된 저널에 덧붙이는 색인 정보다. 사용자가
 준비 예정일은 실험 완료 + 원고 준비 달력일이다. 날짜만 있는 완료 예정은 해당 시간대의 하루 끝으로 보수적으로 해석한다. 실제 작업량과 가용 시간도 별도 resource_plan에서 확인한다. 불명확하면 `{status:pending, reason, next_action}`으로 남긴다. 완료한 선행 제출은 completed_steps에 `{venue_id,deadline_id,completed_at(UTC offset 포함),evidence(source)}`로 기록하며, 기준 시각 이후 기록이나 근거 없는 완료를 허용하지 않는다. 마감 후 완료는 필수 경로를 충족시키지 않는다.
 
 `journal-recheck --as-of <날짜 또는 offset 포함 시각>`은 문헌 확인일의 경과와 제출 가능 일정을 별도 출력한다. expired, blocked_prerequisite, pending_prerequisite, insufficient_preparation_time, readiness_unknown, ready_in_time 등을 구분한다. 날짜만 지정하고 같은 날 마감이면 정확한 시각을 재확인해야 한다. profile.timezone 미지정 시 기준일 해석에 UTC를 쓰며 출력에 명시한다. 상시 접수 저널은 공식 확인된 mode=rolling, deadlines=[]로 표시한다. 자유 서술 기존 일정은 needs_structure로 읽고 최종 보고서에도 확인 과제로 남긴다. 이 검사는 웹의 최신 일정을 조회하거나 실제 제출을 수행하지 않는다.
+
+원고 준비 기간은 IANA 시간대의 현지 달력일로 더한다. 일광절약시간 전환 뒤 offset을 다시 반영하고, 준비 0일은 실제 입력 시각을 보존한다. 가을의 반복 시각에서 선행 마감과 준비 가능 여부는 UTC 시각으로 비교한다. 준비 종료가 봄 전환의 존재하지 않는 시각이 되면 임의로 확정하지 않고 입력 오류와 일정 재확인 과제를 반환한다.
