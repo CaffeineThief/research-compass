@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation">Installation</a> · <a href="#usage">Usage</a> · <a href="#output-files">Output files</a> · <a href="README.ko.md">한국어</a> · v1.0.2
+  <a href="#installation">Installation</a> · <a href="#usage">Usage</a> · <a href="#output-files">Output files</a> · <a href="README.ko.md">한국어</a> · v1.0.0
 </p>
 
 ---
