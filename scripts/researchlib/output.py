@@ -3,7 +3,7 @@ import math
 import json
 from datetime import date
 
-from .evaluation import rank, gap_errors, review_errors, selected_candidates
+from .evaluation import rank, gap_errors, novelty_errors, review_errors, selected_candidates
 from .journals import verified_field, recheck_journals, venue_fields, schedule_check, submission_plan, zone
 from .literature import validate_claims, validate_paper, evidence_errors, evidence_version, valid_id_list
 from .planning import planning_errors, pilot_estimate, resource_budget, resource_check
@@ -172,6 +172,7 @@ def validate(state, final=False):
                     if status not in ("complete", "partial") or (status == "partial" and not candidate.get("stage_notes", {}).get(stage) and not report.get("stage_notes", {}).get(stage)):
                         errors.append(f"candidate {candidate['id']}.stage {stage}: 재검토 완료 또는 사유 있는 partial 필요")
                 errors.extend(f"candidate {candidate['id']}: {issue}" for issue in gap_errors(candidate, state))
+                errors.extend(f"candidate {candidate['id']}: {issue}" for issue in novelty_errors(candidate, state))
                 if next(r for r in rank(state) if r['id'] == candidate['id'])["status"] == "rejected":
                     errors.append(f"candidate {candidate['id']}: 탈락 후보는 최종 추천 불가")
                 errors.extend(f"candidate {candidate['id']}: {e}" for e in planning_errors(candidate, final=True))

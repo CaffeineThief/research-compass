@@ -141,3 +141,5 @@ python3 "$SCRIPT" export ./research-run/state.json --final --format all
 - 정성·이론 연구: `status=qualitative`, reason, criteria(예: 반례 탐색·증명 검토·자료 포화 기준), assumptions, source. design 자체가 not_applicable인 경우에도 이 판단 기준은 설명한다.
 
 정량 계획의 `resource_plan.scope`에는 unit(같은 독립 평가 단위), evaluation_units(비용에 포함한 평가 표본 수), repeated_runs(설계와 같은 반복 수)를 기록한다. 사건 계획이 있으면 scope.events `{unit,count}`도 포함한다. 표본·반복 확대가 산정 범위를 벗어나면 conditional이며 평가·준비·작업시간과 파일럿 실행 수를 다시 계산한다. 훈련 영상 수 pilot.dataset_size를 환자 단위 평가 표본 수로 비교하지 않는다. 변경 후 `invalidate <state> evaluation --candidate <ID> --reason '표본/반복 계획 변경'`으로 재검토를 기록한다. 기존 계획 누락 초안은 읽으며 미작성 과제를 표시하고 최종 선택에서 명시적 계획을 요구한다.
+
+최종 선택 후보의 노벨티 6축 비교도 실제 문헌 ID·버전·열람 위치와 대조한다. 없는/제외된 문헌이나 미열람 근거는 최종 검증 오류이며, 자원 미측정처럼 사유를 명시한 정상 조건부와 구분한다. 오류가 있으면 export --final은 기존 산출물을 보존하고 중단한다.
