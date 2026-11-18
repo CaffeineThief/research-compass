@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "research-compass",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "확인 가능한 학술 근거로 연구 주제, 실행 계획, 투고 전략을 만드는 연구 보조 플러그인",
   "extensions": {
     "com.openai": {

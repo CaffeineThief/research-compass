@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#installation">Installation</a> · <a href="#usage">Usage</a> · <a href="#output-files">Output files</a> · <a href="README.ko.md">한국어</a> · v1.0.2
+  <a href="#installation">Installation</a> · <a href="#usage">Usage</a> · <a href="#output-files">Output files</a> · <a href="README.ko.md">한국어</a> · v1.0.3
 </p>
 
 ---
@@ -59,7 +59,7 @@ The [workflow guide](skills/research-compass/references/workflow.md) covers pilo
 
 Candidates go through screening before detailed review, with a summary linked to sources and progress tracked for each candidate. Plans connect the problem and research question to meaningful effects, independent samples, measured resources, and submission deadlines with time zones and writing time.
 
-Version 1.0.2 fixes final novelty validation, resource-unit checks, progress reporting, incomplete draft handling, daylight-saving calculations, and query relevance accounting. The regression suite contains 130 tests.
+Version 1.0.3 adds a value review before narrowing a research question. It compares the knowledge gained, decisions affected, scope lost, and broader alternatives; unresolved narrowing cannot be finalized. The regression suite contains 140 tests.
 
 All ten improvements and their checks are recorded in the [improvement plan](docs/IMPROVEMENT_PLAN.md), in Korean. The [offline comparison](docs/benchmarks/rc07-review-depth.json) uses synthetic inputs; it does not measure real literature-search quality or LLM costs.
 
