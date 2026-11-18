@@ -53,6 +53,8 @@ def validate(state, final=False):
     if selection is not None and (not isinstance(selection, list) or any(not isinstance(s, str) for s in selection)):
         errors.append("report.selected_candidate_ids: 문자열 배열 필요")
     for candidate in state["candidates"]:
+        if "stage_notes" in candidate and not isinstance(candidate["stage_notes"], dict):
+            errors.append(f"candidate {candidate['id']}.stage_notes: 객체 필요")
         stages = candidate.get("stages", {})
         if (not isinstance(stages, dict) or set(stages) - set(STAGES)
                 or any(value not in ("pending", "in_progress", "stale", "complete", "partial") for value in stages.values())):
@@ -201,7 +203,7 @@ def markdown(state):
     for index, c in enumerate(selected, 1):
         plan = c.get("plan", {})
         tasks = [t["text"] for t in c.get("first_week", []) if not t.get("done")]
-        actions = c.get("review", {}).get("next_actions", [])
+        actions = (c.get("review") or {}).get("next_actions", [])
         risk = plan.get("resources_risks") or "; ".join(results[c["id"]]["reasons"])
         action = next(iter(tasks or actions), "미정 — 첫 주 작업 작성 필요")
         values = [f"[{cell(c['id'])}: {cell(c['title'])}](#candidate-{index}) / {results[c['id']]['status']}",
@@ -340,7 +342,7 @@ def markdown(state):
               "<details><summary>갈래별 집계·질의별 지속/종료 근거</summary>", "", "```json", json.dumps(coverage, ensure_ascii=False, indent=2), "```", "", "</details>", ""]
     for s in state["search_log"]:
         lines.append(f"- {s['id']} [{s.get('branch')}] {s.get('query')} / {s.get('provider')} / {s.get('since')}–{s.get('until')} / {s.get('status')} / {s.get('at')} / cache={s.get('cache_hit', False)} / {s.get('error', '')}")
-    lines += ["", "## 투고처 재확인", "", "기본 90일 기준의 확인일 점검입니다. 최신 사실을 자동 조회한 결과가 아닙니다.", ""]
+    lines += ["", "## 투고처 재확인", "", "기본 90일의 확인일 점검과 구조화된 제출 일정 대조입니다. 최신 사실을 자동 조회한 결과가 아닙니다.", ""]
     for journal in recheck_journals(state, state.get("report", {}).get("as_of")):
         lines.append(f"- {journal['name']} (기준일 {journal['as_of']}): " + "; ".join(f"{key}={value['status']}" for key, value in journal['fields'].items()))
         submission = journal["submission"]

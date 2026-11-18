@@ -93,7 +93,7 @@ def validate_review(state, review):
         raise ValueError("검색 검토: continue/stop, 이유, 남은 질문 배열 필요")
     from .literature import valid_id_list
     ids = review.get("relevant_paper_ids")
-    known = {p["id"] for p in state["papers"] if not p.get("excluded")}
+    known = {p["id"] for p in state["papers"]}
     if not valid_id_list(ids) or set(ids) - known:
         raise ValueError("검색 검토: 실제 채택 문헌의 고유 relevant_paper_ids 배열 필요")
 
@@ -169,6 +169,7 @@ def search_coverage(state):
         if review is not None:
             validate_review(state, review)
         relevant = set(review.get("relevant_paper_ids", [])) if review else set()
+        relevant -= {p["id"] for p in state["papers"] if p.get("excluded")}
         queries.append({"id": entry["id"], "query": entry.get("query"), **accounting(entry),
                         "new_relevant": len(relevant - relevant_seen) if review else None,
                         "action": review.get("action") if review else "review_needed",

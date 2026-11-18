@@ -147,7 +147,7 @@ def effect_check(design, final=False):
         reasons.append(f"독립 표본 부족: 확보 {available:g} / 필요 {required:g} {plan['unit']}")
     if "required_repeated_runs" in plan:
         repeats = number(plan, "required_repeated_runs", integer=True)
-        if design.get("repeated_runs", 0) < repeats:
+        if number(design, "repeated_runs", integer=True) < repeats:
             reasons.append("효과 계획에 필요한 반복 수보다 설계의 반복 수가 적음")
     if "events" in plan:
         events = plan["events"]
@@ -307,6 +307,11 @@ def planning_errors(candidate, final=False):
                     raise ValueError("resource_plan.scope: 독립 단위·평가 표본 수·반복 수 필요")
                 number(scope, "evaluation_units", integer=True, positive=False)
                 number(scope, "repeated_runs", integer=True)
+                if "events" in scope:
+                    events = scope["events"]
+                    if not isinstance(events, dict) or not isinstance(events.get("unit"), str) or not events["unit"].strip():
+                        raise ValueError("resource_plan.scope.events: 사건 단위와 count 필요")
+                    number(events, "count", integer=True, positive=False)
         except ValueError as exc:
             errors.append(str(exc))
     tasks = candidate.get("first_week")

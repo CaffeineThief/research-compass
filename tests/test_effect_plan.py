@@ -10,6 +10,10 @@ class EffectPlanTests(unittest.TestCase):
         for key, value in [('minimum_effect', 0), ('required_units', True), ('available_units', -1), ('unit', 'TEST image'), ('source', None)]:
             s = complete(); s['candidates'][0]['design']['effect_plan'][key] = value
             self.assertTrue(validate(s), (key, value))
+        s = complete(); s['candidates'][0]['design']['repeated_runs'] = 'bad'
+        self.assertTrue(validate(s))
+        s = complete(); s['candidates'][0]['resource_plan']['scope']['events'] = {'unit': 'TEST event', 'count': True}
+        self.assertTrue(validate(s))
         s = complete(); s['candidates'][0]['design']['effect_plan']['precision'] = {'kind': 'power', 'target': 1, 'level': 0.05}
         self.assertTrue(validate(s))
         s['candidates'][0]['design']['effect_plan']['precision']['target'] = 0.8

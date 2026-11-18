@@ -29,6 +29,8 @@ class SearchAccountingTests(unittest.TestCase):
             c = search_coverage(s)
             self.assertEqual([q['new_relevant'] for q in c['queries']], [1, 0])
             self.assertEqual(s, before)
+            s["papers"][0]["excluded"] = True
+            self.assertEqual(search_coverage(s)["queries"][0]["new_relevant"], 0)
 
     def test_failure_limit_and_replay_counters(self):
         s = new_state('TEST'); s['config']['max_results'] = 2

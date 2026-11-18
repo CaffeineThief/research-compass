@@ -38,5 +38,8 @@ class InvalidationTests(unittest.TestCase):
         self.assertEqual(s['stages']['evaluation'], 'stale')
         with self.assertRaises(ValueError):
             invalidate(s, 'evaluation', 'TEST', ['missing'])
+        s['candidates'][0]['stage_notes'] = []
+        self.assertTrue(validate(s, final=True))
+        s['candidates'][0]['stage_notes'] = {}
         s['candidates'][0]['stages'] = []
         self.assertTrue(validate(s))

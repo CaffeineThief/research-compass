@@ -22,6 +22,7 @@ class ReportSelectionTests(unittest.TestCase):
 
     def test_default_empty_and_invalid_selection(self):
         s = complete(); del s['report']['selected_candidate_ids']
+        s['candidates'][0]['review'] = None
         self.assertIn('## TEST-C1:', week_checklist(s))
         self.assertIn('## TEST-C1:', markdown(s))
         s['report']['selected_candidate_ids'] = []

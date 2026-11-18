@@ -3,11 +3,11 @@
   "scope": "Fixed synthetic candidates and responses; measured local bookkeeping only. No LLM, actual literature retrieval, GPU or token measurements; elapsed time is not a research speed estimate.",
   "results": {
     "all_detailed": {
-      "input_sha256": "5ad38d4c7036e6612fdf5c8c02609ecb6a4fff74abad399fe2078546f15a8929",
+      "input_sha256": "0a0576953c4101b21895ad7662dff0cba4b3ae93077c41a71a03ca8c7fc89d2c",
       "max_requests": 20,
       "max_results": 100,
       "requests": 6,
-      "elapsed_seconds": 0.003404,
+      "elapsed_seconds": 0.003724,
       "detailed_candidates": [
         "TEST-C1",
         "TEST-C2",
@@ -23,11 +23,11 @@
       "tokens": null
     },
     "screen_then_detail": {
-      "input_sha256": "5ad38d4c7036e6612fdf5c8c02609ecb6a4fff74abad399fe2078546f15a8929",
+      "input_sha256": "0a0576953c4101b21895ad7662dff0cba4b3ae93077c41a71a03ca8c7fc89d2c",
       "max_requests": 20,
       "max_results": 100,
       "requests": 3,
-      "elapsed_seconds": 0.002252,
+      "elapsed_seconds": 0.002225,
       "detailed_candidates": [
         "TEST-C1",
         "TEST-C2",
